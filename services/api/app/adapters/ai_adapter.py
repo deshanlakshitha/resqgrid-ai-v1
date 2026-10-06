@@ -2,6 +2,7 @@
 AI Adapter Interface — abstracts the AI provider so models can be swapped.
 
 Currently supports:
+- Google Gemini (via REST API)
 - Alibaba Cloud Model Studio / Qwen (via OpenAI-compatible API)
 - Mock adapter (for development/testing without API keys)
 """
@@ -155,8 +156,93 @@ class MockAIAdapter(AIAdapter):
         return "Mock image analysis: flooded road detected. Configure DASHSCOPE_API_KEY for real AI vision analysis."
 
 
+class GeminiAIAdapter(AIAdapter):
+    """Google Gemini adapter using the Gemini REST API."""
+
+    def __init__(self):
+        self.api_key = settings.GEMINI_API_KEY
+        self.model = settings.GEMINI_MODEL
+        self.base_url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}"
+
+    async def complete(self, prompt: str, response_format: str = "text") -> dict | str:
+        payload: dict = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.3,
+                "maxOutputTokens": 2000,
+            },
+        }
+
+        if response_format == "json":
+            payload["generationConfig"]["responseMimeType"] = "application/json"
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{self.base_url}:generateContent?key={self.api_key}",
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        content = data["candidates"][0]["content"]["parts"][0]["text"]
+
+        if response_format == "json":
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                return {"error": "Invalid JSON response from AI", "raw": content}
+
+        return content
+
+    async def analyze_image(self, image_url: str, prompt: str, response_format: str = "text") -> dict | str:
+        """Analyze an image using Gemini multimodal."""
+        # Fetch image and encode as base64 for Gemini
+        import base64
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            img_response = await client.get(image_url)
+            img_response.raise_for_status()
+            image_data = base64.b64encode(img_response.content).decode("utf-8")
+            mime_type = img_response.headers.get("content-type", "image/jpeg").split(";")[0]
+
+        payload: dict = {
+            "contents": [{
+                "parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": mime_type, "data": image_data}},
+                ]
+            }],
+            "generationConfig": {
+                "temperature": 0.3,
+                "maxOutputTokens": 2000,
+            },
+        }
+
+        if response_format == "json":
+            payload["generationConfig"]["responseMimeType"] = "application/json"
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{self.base_url}:generateContent?key={self.api_key}",
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        content = data["candidates"][0]["content"]["parts"][0]["text"]
+
+        if response_format == "json":
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                return {"error": "Invalid JSON response from AI", "raw": content}
+
+        return content
+
+
 def get_ai_adapter() -> AIAdapter:
     """Factory: return the appropriate AI adapter based on configuration."""
+    if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY != "":
+        return GeminiAIAdapter()
     if settings.DASHSCOPE_API_KEY and settings.DASHSCOPE_API_KEY != "your-dashscope-api-key":
         return ModelStudioAdapter()
     return MockAIAdapter()
