@@ -3,6 +3,9 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { createRequire } = require('node:module');
 const http = require('node:http');
+const os = require('node:os');
+const { execFileSync } = require('node:child_process');
+const ts = require('typescript');
 
 function workerHarness() {
   const handlers = {};
@@ -69,6 +72,49 @@ describe('private responses stay outside the offline cache', () => {
     const event = requestEvent('https://demo.test/login', { mode: 'navigate' });
     handlers.fetch(event);
     expect(await event.respondWith.mock.calls[0][0]).toBe(shell);
+  });
+});
+
+describe('MapLibre worker assets survive production bundling', () => {
+  const webRoot = path.join(__dirname, '../..');
+
+  test('publishes the installed worker and its relative shared module together', () => {
+    const destination = fs.mkdtempSync(path.join(os.tmpdir(), 'resqgrid-map-worker-'));
+    const distribution = path.join(path.dirname(require.resolve('maplibre-gl/package.json')), 'dist');
+    try {
+      execFileSync(process.execPath, [path.join(webRoot, 'scripts/prepare-maplibre.mjs'), destination]);
+      for (const file of ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']) {
+        expect(fs.readFileSync(path.join(destination, file)))
+          .toEqual(fs.readFileSync(path.join(distribution, file)));
+      }
+    } finally {
+      fs.rmSync(destination, { recursive: true, force: true });
+    }
+  });
+
+  test('prepares assets before development and both web and Capacitor builds', () => {
+    const { scripts } = require('../../package.json');
+    expect(scripts.predev).toBe('node scripts/prepare-maplibre.mjs');
+    expect(scripts.prebuild).toBe('node scripts/prepare-maplibre.mjs');
+  });
+
+  test('configures a same-origin worker before returning the engine to either map', async () => {
+    const engine = { setWorkerUrl: jest.fn() };
+    const source = fs.readFileSync(path.join(__dirname, 'mapConfig.ts'), 'utf8');
+    const { outputText } = ts.transpileModule(source, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2019 },
+    });
+    const module = { exports: {} };
+    vm.runInNewContext(outputText, {
+      module,
+      exports: module.exports,
+      require: (name) => {
+        if (name !== 'maplibre-gl') throw new Error(`Unexpected module: ${name}`);
+        return engine;
+      },
+    });
+    expect(await module.exports.loadMapLibre()).toBe(engine);
+    expect(engine.setWorkerUrl).toHaveBeenCalledWith('/maplibre/maplibre-gl-worker.mjs');
   });
 });
 

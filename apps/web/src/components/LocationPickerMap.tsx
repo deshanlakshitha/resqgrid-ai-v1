@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Crosshair, Loader2, MapPin, Search, X } from 'lucide-react';
 import { useMapEngine } from '@/lib/useMapEngine';
-import { FALLBACK_MAP_STYLE_URL } from '@/lib/mapConfig';
+import { FALLBACK_MAP_STYLE_URL, loadMapLibre } from '@/lib/mapConfig';
 
 interface Props {
   latitude: number;
@@ -295,7 +295,7 @@ function MapLibrePicker({ latitude, longitude, onChange }: Props) {
     let cancelled = false;
 
     const init = async () => {
-      const maplibregl = await import('maplibre-gl');
+      const maplibregl = await loadMapLibre();
       if (cancelled || !containerRef.current) return;
 
       const map = new maplibregl.Map({

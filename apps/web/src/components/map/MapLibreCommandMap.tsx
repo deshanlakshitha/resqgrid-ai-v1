@@ -7,6 +7,7 @@ import {
   FALLBACK_MAP_STYLE_URL,
   HAZARD_COLOR,
   incidentColor,
+  loadMapLibre,
   resourceColor,
 } from '@/lib/mapConfig';
 import { hazardHtml, incidentHtml, resourceHtml } from './popupHtml';
@@ -41,7 +42,7 @@ export function MapLibreCommandMap({
     let cancelled = false;
 
     const initMap = async () => {
-      const maplibregl = await import('maplibre-gl');
+      const maplibregl = await loadMapLibre();
       if (cancelled || !containerRef.current) return;
       maplibreRef.current = maplibregl;
 

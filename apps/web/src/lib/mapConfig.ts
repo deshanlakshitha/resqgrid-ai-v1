@@ -26,6 +26,13 @@ export const DEFAULT_ZOOM = 11.5;
 /** Free, keyless, Google-Maps-style basemap used when no Google key is set. */
 export const FALLBACK_MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
+/** Load the bundled engine with its matching, same-origin worker assets. */
+export async function loadMapLibre() {
+  const maplibre = await import('maplibre-gl');
+  maplibre.setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
+  return maplibre;
+}
+
 export function incidentColor(severity: string | null | undefined): string {
   return SEVERITY_COLORS[(severity ?? '').toLowerCase()] ?? '#6b7280';
 }
