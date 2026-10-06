@@ -228,4 +228,5 @@ class AuditLog(BaseModel):
 
     # Relationships
     user = relationship("User", back_populates="audit_events")
-    incident = relationship("Incident", back_populates="audit_logs", foreign_keys="AuditLog.entity_id")
+    # NOTE: AuditLog links to entities polymorphically via (entity_type, entity_id),
+    # so there is no ORM relationship to Incident — query by entity_id instead.

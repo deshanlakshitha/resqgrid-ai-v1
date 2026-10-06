@@ -101,4 +101,3 @@ class Incident(BaseModel):
     evidence_items = relationship("Evidence", back_populates="incident")
     recommendations = relationship("Recommendation", back_populates="incident")
     assignments = relationship("Assignment", back_populates="incident")
-    audit_logs = relationship("AuditLog", back_populates="incident")

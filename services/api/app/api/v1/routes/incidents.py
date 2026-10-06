@@ -11,7 +11,9 @@ from app.core.database import get_db
 from app.core.deps import get_current_user, require_role
 from app.models.user import User, UserRole
 from app.models.incident import Incident
+from app.models.entities import AuditAction
 from app.schemas.schemas import IncidentCreate, IncidentUpdate, IncidentResponse, TriageOutput, PriorityScore
+from app.services.audit_service import log_action
 
 router = APIRouter()
 
@@ -40,6 +42,14 @@ async def create_incident(
     )
     db.add(incident)
     await db.flush()
+    await log_action(
+        db,
+        action=AuditAction.CREATE,
+        entity_type="incident",
+        entity_id=incident.id,
+        user_id=current_user.id,
+        details={"title": incident.title, "incident_type": incident.incident_type},
+    )
     await db.refresh(incident)
     return incident
 
@@ -138,6 +148,14 @@ async def run_triage(
     incident.triaged_at = datetime.now(timezone.utc)
     incident.status = "triaged"
 
+    await log_action(
+        db,
+        action=AuditAction.TRIAGE,
+        entity_type="incident",
+        entity_id=incident.id,
+        user_id=current_user.id,
+        details={"severity": validated.severity, "confidence": validated.confidence},
+    )
     await db.flush()
     return validated
 
@@ -163,6 +181,14 @@ async def calculate_priority(
     incident.prioritized_at = priority.calculated_at
     incident.status = "prioritized"
 
+    await log_action(
+        db,
+        action=AuditAction.PRIORITIZE,
+        entity_type="incident",
+        entity_id=incident.id,
+        user_id=current_user.id,
+        details={"score": priority.score},
+    )
     await db.flush()
     return priority
 
@@ -182,4 +208,12 @@ async def generate_recommendations(
         raise HTTPException(status_code=404, detail="Incident not found")
 
     recommendations = await generate_resource_recommendations(db, incident)
+    await log_action(
+        db,
+        action=AuditAction.RECOMMEND,
+        entity_type="incident",
+        entity_id=incident.id,
+        user_id=current_user.id,
+        details={"count": len(recommendations)},
+    )
     return recommendations

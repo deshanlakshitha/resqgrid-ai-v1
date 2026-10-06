@@ -76,3 +76,6 @@ logs/
 tmp/
 temp/
 *.tmp
+
+# Qoder IDE
+.qoder/

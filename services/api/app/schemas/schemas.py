@@ -51,8 +51,8 @@ class UserResponse(BaseModel):
 # ============================================================================
 
 class IncidentCreate(BaseModel):
-    title: str = Field(..., max_length=500)
-    description: str
+    title: str = Field(..., min_length=1, max_length=500)
+    description: str = Field(..., min_length=1)
     incident_type: str = Field("other")
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)

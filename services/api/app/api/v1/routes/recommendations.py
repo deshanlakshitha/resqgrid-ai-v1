@@ -10,8 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import require_role
 from app.models.user import User, UserRole
-from app.models.entities import Recommendation, RecommendationStatus
+from app.models.entities import Recommendation, RecommendationStatus, AuditAction
 from app.schemas.schemas import RecommendationResponse, ApprovalRequest
+from app.services.audit_service import log_action
 
 router = APIRouter()
 
@@ -59,6 +60,18 @@ async def approve_recommendation(
     rec.approved_by = current_user.id
     rec.approved_at = datetime.now(timezone.utc)
 
+    await log_action(
+        db,
+        action=AuditAction.APPROVE,
+        entity_type="recommendation",
+        entity_id=rec.id,
+        user_id=current_user.id,
+        details={
+            "incident_id": str(rec.incident_id),
+            "resource_id": str(rec.resource_id),
+            "confidence": rec.confidence,
+        },
+    )
     await db.flush()
     await db.refresh(rec)
     return rec
@@ -87,6 +100,18 @@ async def reject_recommendation(
     rec.approved_at = datetime.now(timezone.utc)
     rec.rejection_reason = data.reason
 
+    await log_action(
+        db,
+        action=AuditAction.REJECT,
+        entity_type="recommendation",
+        entity_id=rec.id,
+        user_id=current_user.id,
+        details={
+            "incident_id": str(rec.incident_id),
+            "resource_id": str(rec.resource_id),
+            "reason": data.reason,
+        },
+    )
     await db.flush()
     await db.refresh(rec)
     return rec
