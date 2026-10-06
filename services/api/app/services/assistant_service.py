@@ -2,15 +2,18 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import select, func
+import structlog
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.adapters.ai_adapter import get_ai_adapter, MockAIAdapter
-from app.models.incident import Incident, IncidentStatus, IncidentSeverity
-from app.models.resource import Resource, ResourceStatus
+from app.adapters.ai_adapter import MockAIAdapter, get_ai_adapter
 from app.models.entities import Hazard, HazardStatus, Recommendation, RecommendationStatus
-from app.schemas.schemas import AssistantQuery, AssistantResponse
+from app.models.incident import Incident, IncidentSeverity, IncidentStatus
+from app.models.resource import Resource, ResourceStatus
 from app.models.user import User
+from app.schemas.schemas import AssistantQuery, AssistantResponse
+
+logger = structlog.get_logger()
 
 
 async def _gather_context(db: AsyncSession):
@@ -181,7 +184,26 @@ Operator Question: {query.question}
 
 Answer:"""
 
-    result = await adapter.complete(prompt)
+    try:
+        result = await adapter.complete(prompt)
+    except Exception as exc:
+        # Degraded mode: any provider failure (quota, timeout, safety block,
+        # model error) falls back to deterministic database-driven answers so
+        # the assistant keeps working during a crisis.
+        logger.warning("assistant_llm_unavailable", error=str(exc), question=query.question)
+        answer = _answer_without_llm(
+            query.question, active_incidents, active_hazards, available_resources, pending_recs
+        )
+        return AssistantResponse(
+            answer=(
+                "Live AI backend is unreachable right now — "
+                "answering from the operations database instead.\n\n" + answer
+            ),
+            sources=["incident_database", "hazard_registry", "resource_registry", "recommendation_registry"],
+            confidence=0.6,
+            timestamp=datetime.now(timezone.utc),
+        )
+
     answer = result if isinstance(result, str) else str(result)
 
     return AssistantResponse(
