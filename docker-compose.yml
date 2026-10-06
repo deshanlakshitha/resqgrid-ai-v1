@@ -59,6 +59,8 @@ services:
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
       - MODEL_STUDIO_BASE_URL=${MODEL_STUDIO_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
       - MODEL_STUDIO_MODEL=${MODEL_STUDIO_MODEL:-qwen-plus}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.6-flash}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
       - APP_ENV=${APP_ENV:-development}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}

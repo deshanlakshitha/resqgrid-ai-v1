@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     MODEL_STUDIO_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     MODEL_STUDIO_MODEL: str = "qwen-plus"
 
+    # ---- Google Gemini ----
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.6-flash"
+
     # ---- Object Storage ----
     OSS_ACCESS_KEY_ID: str = ""
     OSS_ACCESS_KEY_SECRET: str = ""
