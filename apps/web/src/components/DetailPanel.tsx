@@ -222,7 +222,7 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
 
   const resourceById = (id: string) => resources.find((r) => r.id === id);
   const triage = incident.triage_data as Record<string, any> | null;
-  const pendingCount = recommendations.filter((r) => r.status === 'PENDING').length;
+  const pendingCount = recommendations.filter((r) => r.status.toUpperCase() === 'PENDING').length;
   const hasScore = incident.priority_score != null;
 
   const actions = [
@@ -458,15 +458,16 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
               const resource = resourceById(rec.resource_id);
               const isBusy =
                 loadingAction === `approve-${rec.id}` || loadingAction === `reject-${rec.id}`;
-              const approved = rec.status === 'APPROVED';
-              const rejected = rec.status === 'REJECTED';
+              const status = rec.status.toUpperCase();
+              const approved = status === 'APPROVED';
+              const rejected = status === 'REJECTED';
 
               return (
                 <div
                   key={rec.id}
                   className={cn(
                     'rounded-xl border p-3 transition-all',
-                    rec.status === 'PENDING'
+                    status === 'PENDING'
                       ? 'border-yellow-500/30 bg-yellow-500/[0.04]'
                       : approved
                         ? 'border-green-500/30 bg-green-500/[0.04]'
@@ -486,15 +487,15 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
                     <span
                       className={cn(
                         'shrink-0 text-[9px] font-bold px-2 py-1 rounded-md tracking-wider flex items-center gap-1',
-                        rec.status === 'PENDING'
+                        status === 'PENDING'
                           ? 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30'
                           : approved
                             ? 'bg-green-500/15 text-green-400 border border-green-500/30'
                             : 'bg-red-500/15 text-red-400 border border-red-500/30'
                       )}
                     >
-                      {rec.status === 'PENDING' && <History className="w-3 h-3" />}
-                      {rec.status}
+                      {status === 'PENDING' && <History className="w-3 h-3" />}
+                      {status}
                     </span>
                   </div>
 
@@ -528,7 +529,7 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
                     </div>
                   )}
 
-                  {rec.status === 'PENDING' ? (
+                  {status === 'PENDING' ? (
                     <div className="grid grid-cols-2 gap-2 mt-3">
                       <button
                         onClick={() => handleApprove(rec)}
@@ -567,7 +568,11 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
                       ) : (
                         <XCircle className="w-3.5 h-3.5" />
                       )}
-                      {approved ? 'Human-approved decision logged' : 'Rejected by operator'}
+                      {approved
+                        ? 'Human-approved decision logged'
+                        : rejected
+                          ? 'Rejected by operator'
+                          : `Marked as ${status.toLowerCase()}`}
                     </div>
                   )}
                 </div>
