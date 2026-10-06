@@ -60,7 +60,7 @@ export function KPIBar({ summary, user, connected, onLogout, onReport }: Props) 
   ];
 
   return (
-    <header className="relative z-20 bg-command-panel/95 backdrop-blur border-b border-command-border px-5 py-2.5 flex items-center gap-5 shadow-panel">
+    <header className="relative z-20 bg-command-panel/95 backdrop-blur border-b border-command-border px-3 py-2 sm:px-4 sm:py-2.5 lg:px-5 flex items-center gap-2 sm:gap-3 lg:gap-5 shadow-panel">
       {/* Brand */}
       <div className="flex items-center gap-2.5 pr-5 border-r border-command-border">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center shadow-glow-blue shrink-0">
@@ -92,7 +92,7 @@ export function KPIBar({ summary, user, connected, onLogout, onReport }: Props) 
                 <span className={cn('text-base font-bold tabular-nums', kpi.color)}>
                   {has ? kpi.value : '—'}
                 </span>
-                <span className="ml-1.5 text-[11px] text-slate-500">{kpi.label}</span>
+                <span className="ml-1.5 text-[11px] text-slate-500 hidden md:inline">{kpi.label}</span>
               </div>
             </div>
           );
@@ -126,7 +126,7 @@ export function KPIBar({ summary, user, connected, onLogout, onReport }: Props) 
       {/* Report button */}
       <button
         onClick={onReport}
-        className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 rounded-xl text-xs font-semibold shadow-glow-red hover:-translate-y-px active:translate-y-0 transition-all"
+        className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 rounded-xl text-xs font-semibold shadow-glow-red hover:-translate-y-px active:translate-y-0 transition-all shrink-0"
       >
         <PlusCircle className="w-4 h-4" />
         <span className="hidden sm:inline">Report Incident</span>
@@ -134,7 +134,7 @@ export function KPIBar({ summary, user, connected, onLogout, onReport }: Props) 
 
       {/* User */}
       {user && (
-        <div className="flex items-center gap-3 border-l border-command-border pl-4">
+        <div className="flex items-center gap-2 sm:gap-3 border-l border-command-border pl-3 sm:pl-4 shrink-0">
           <div className="hidden lg:flex flex-col items-end leading-tight">
             <p className="text-xs font-semibold">{user.full_name}</p>
             <p className="flex items-center gap-1 text-[10px] text-command-muted uppercase tracking-wider">

@@ -21,6 +21,7 @@ interface Props {
   incident: Incident | null;
   resources: Resource[];
   onChanged: () => Promise<void> | void;
+  onClose?: () => void;
 }
 
 const WEIGHT_LABELS: Record<string, string> = {
@@ -100,7 +101,7 @@ function Meta({ icon: Icon, label, value, valueClass }: {
   );
 }
 
-export function DetailPanel({ incident, resources, onChanged }: Props) {
+export function DetailPanel({ incident, resources, onChanged, onClose }: Props) {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -257,7 +258,16 @@ export function DetailPanel({ incident, resources, onChanged }: Props) {
   return (
     <div className="p-3.5 space-y-3.5 animate-fade-in">
       {/* ===== Header ===== */}
-      <div className="rounded-xl border border-command-borderhover/70 bg-gradient-to-b from-command-raised to-command-panel p-4">
+      <div className="relative rounded-xl border border-command-borderhover/70 bg-gradient-to-b from-command-raised to-command-panel p-4">
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="lg:hidden absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-command-bg/80 border border-command-border text-slate-400 hover:text-slate-200"
+            title="Close details"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
         <div className="flex items-center gap-2 mb-2.5">
           <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-md tracking-wider', severityColor(incident.severity))}>
             {incident.severity?.toUpperCase()}

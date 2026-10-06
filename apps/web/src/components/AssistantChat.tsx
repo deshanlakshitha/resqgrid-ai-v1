@@ -72,7 +72,7 @@ export function AssistantChat() {
   return (
     <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end">
       {isOpen && (
-        <div className="mb-3 w-80 sm:w-96 rounded-2xl border border-command-border bg-command-panel/95 backdrop-blur-md shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[80vh]">
+        <div className="mb-3 w-[calc(100vw-4.5rem)] sm:w-96 rounded-2xl border border-command-border bg-command-panel/95 backdrop-blur-md shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[80vh]">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-command-border bg-command-bg/60 shrink-0">
             <div className="flex items-center gap-2">

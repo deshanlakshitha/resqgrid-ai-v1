@@ -5,6 +5,7 @@ const nextConfig = {
   reactStrictMode: true,
   output: isCapacitor ? 'export' : 'standalone',
   distDir: isCapacitor ? 'dist' : '.next',
+  trailingSlash: isCapacitor,
   images: {
     unoptimized: isCapacitor,
     remotePatterns: [
