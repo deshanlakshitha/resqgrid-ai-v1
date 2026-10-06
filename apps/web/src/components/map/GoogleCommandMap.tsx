@@ -5,7 +5,6 @@ import {
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
   DIAMOND_PATH,
-  GOOGLE_MAP_DARK_STYLE,
   HAZARD_COLOR,
   SQUARE_PATH,
   incidentColor,
@@ -40,8 +39,8 @@ export function GoogleCommandMap({
     const map = new google.maps.Map(containerRef.current, {
       center: DEFAULT_CENTER,
       zoom: Math.round(DEFAULT_ZOOM),
-      styles: GOOGLE_MAP_DARK_STYLE,
-      backgroundColor: '#080c16',
+      // Use the standard real Google Maps color scheme (no custom dark styling)
+      backgroundColor: '#e5e7eb',
       disableDefaultUI: true,
       zoomControl: true,
       fullscreenControl: true,

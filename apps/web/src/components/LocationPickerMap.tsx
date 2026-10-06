@@ -3,10 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Crosshair, Loader2, MapPin } from 'lucide-react';
 import { useMapEngine } from '@/lib/useMapEngine';
-import {
-  FALLBACK_MAP_STYLE_URL,
-  GOOGLE_MAP_DARK_STYLE,
-} from '@/lib/mapConfig';
+import { FALLBACK_MAP_STYLE_URL } from '@/lib/mapConfig';
 
 interface Props {
   latitude: number;
@@ -91,8 +88,8 @@ function GooglePicker({ latitude, longitude, onChange }: Props) {
     const map = new google.maps.Map(containerRef.current, {
       center: { lat: latitude, lng: longitude },
       zoom: 14,
-      styles: GOOGLE_MAP_DARK_STYLE,
-      backgroundColor: '#080c16',
+      // Standard real Google Maps color scheme
+      backgroundColor: '#e5e7eb',
       disableDefaultUI: true,
       zoomControl: true,
       gestureHandling: 'greedy',

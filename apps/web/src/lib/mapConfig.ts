@@ -23,8 +23,8 @@ export const HAZARD_COLOR = '#f97316';
 export const DEFAULT_CENTER = { lat: 1.3521, lng: 103.8198 };
 export const DEFAULT_ZOOM = 11.5;
 
-/** Free, keyless, detailed basemap used when no Google Maps key is set. */
-export const FALLBACK_MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/dark';
+/** Free, keyless, Google-Maps-style basemap used when no Google key is set. */
+export const FALLBACK_MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 export function incidentColor(severity: string | null | undefined): string {
   return SEVERITY_COLORS[(severity ?? '').toLowerCase()] ?? '#6b7280';
