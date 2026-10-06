@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import 'maplibre-gl/dist/maplibre-gl.css';
+
+:root {
+  --color-critical: #ef4444;
+  --color-high: #f97316;
+  --color-medium: #eab308;
+  --color-low: #22c55e;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* Severity badge colors */
+.severity-critical { @apply bg-critical-600 text-white; }
+.severity-high { @apply bg-high-500 text-white; }
+.severity-medium { @apply bg-medium-500 text-gray-900; }
+.severity-low { @apply bg-low-500 text-white; }
+
+/* Scrollbar styling for dark theme */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #1e293b; }
+::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #64748b; }
