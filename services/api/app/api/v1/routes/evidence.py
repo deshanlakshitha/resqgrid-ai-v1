@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,11 +19,13 @@ router = APIRouter()
 async def upload_evidence(
     incident_id: str,
     file: UploadFile = File(...),
+    analyze: bool = Query(True, description="Run AI vision analysis on image evidence after upload"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Upload evidence (image/file) for an incident."""
     from app.services.storage_service import upload_file_to_storage
+    from app.services.vision_service import run_vision_analysis_for_evidence
 
     # Upload to object storage
     file_url = await upload_file_to_storage(file)
@@ -41,12 +43,76 @@ async def upload_evidence(
     await db.flush()
     await db.refresh(evidence)
 
+    ai_analysis = None
+    if analyze and evidence.evidence_type.value == "image":
+        try:
+            evidence = await run_vision_analysis_for_evidence(db, str(evidence.id))
+            ai_analysis = evidence.ai_analysis
+        except Exception as e:
+            # Do not fail the upload if analysis fails
+            ai_analysis = {"error": str(e), "analyzed_at": None}
+
     return {
         "id": str(evidence.id),
         "file_url": evidence.file_url,
         "file_name": evidence.file_name,
-        "evidence_type": evidence.evidence_type,
+        "evidence_type": evidence.evidence_type.value,
+        "mime_type": evidence.mime_type,
+        "ai_analysis": ai_analysis,
         "uploaded_at": evidence.created_at.isoformat(),
+    }
+
+
+@router.get("/incident/{incident_id}")
+async def list_evidence_for_incident(
+    incident_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all evidence for a specific incident."""
+    result = await db.execute(
+        select(Evidence).where(
+            Evidence.incident_id == incident_id,
+            Evidence.is_deleted == False,
+        ).order_by(Evidence.created_at.desc())
+    )
+    evidence_items = result.scalars().all()
+    return [
+        {
+            "id": str(ev.id),
+            "incident_id": str(ev.incident_id),
+            "file_url": ev.file_url,
+            "file_name": ev.file_name,
+            "evidence_type": ev.evidence_type.value,
+            "mime_type": ev.mime_type,
+            "file_size_bytes": ev.file_size_bytes,
+            "description": ev.description,
+            "ai_analysis": ev.ai_analysis,
+            "uploaded_by": str(ev.uploaded_by),
+            "created_at": ev.created_at.isoformat(),
+        }
+        for ev in evidence_items
+    ]
+
+
+@router.post("/{evidence_id}/analyze", status_code=status.HTTP_200_OK)
+async def analyze_evidence(
+    evidence_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-run AI vision analysis on existing image evidence."""
+    from app.services.vision_service import run_vision_analysis_for_evidence
+
+    evidence = await run_vision_analysis_for_evidence(db, str(evidence_id))
+    return {
+        "id": str(evidence.id),
+        "file_url": evidence.file_url,
+        "file_name": evidence.file_name,
+        "evidence_type": evidence.evidence_type.value,
+        "mime_type": evidence.mime_type,
+        "ai_analysis": evidence.ai_analysis,
+        "created_at": evidence.created_at.isoformat(),
     }
 
 
@@ -66,7 +132,7 @@ async def get_evidence(
         "incident_id": str(evidence.incident_id),
         "file_url": evidence.file_url,
         "file_name": evidence.file_name,
-        "evidence_type": evidence.evidence_type,
+        "evidence_type": evidence.evidence_type.value,
         "mime_type": evidence.mime_type,
         "file_size_bytes": evidence.file_size_bytes,
         "description": evidence.description,

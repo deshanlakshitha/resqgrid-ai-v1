@@ -19,7 +19,12 @@ class AIAdapter(ABC):
 
     @abstractmethod
     async def complete(self, prompt: str, response_format: str = "text") -> dict | str:
-        """Send a prompt and return the response."""
+        """Send a text prompt and return the response."""
+        ...
+
+    @abstractmethod
+    async def analyze_image(self, image_url: str, prompt: str, response_format: str = "text") -> dict | str:
+        """Send an image (URL or base64 data URL) plus a prompt and return the response."""
         ...
 
 
@@ -69,6 +74,54 @@ class ModelStudioAdapter(AIAdapter):
 
         return content
 
+    async def analyze_image(self, image_url: str, prompt: str, response_format: str = "text") -> dict | str:
+        """Analyze an image using a multimodal model (Qwen-VL compatible)."""
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are an emergency response image analyst. Respond with valid JSON when requested.",
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                },
+            ],
+            "temperature": 0.3,
+            "max_tokens": 2000,
+        }
+
+        if response_format == "json":
+            payload["response_format"] = {"type": "json_object"}
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        content = data["choices"][0]["message"]["content"]
+
+        if response_format == "json":
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                return {"error": "Invalid JSON response from AI", "raw": content}
+
+        return content
+
 
 class MockAIAdapter(AIAdapter):
     """Mock adapter for development and testing without API keys."""
@@ -87,6 +140,19 @@ class MockAIAdapter(AIAdapter):
                 "reason_codes": ["rapid_water_rise", "vulnerable_population", "medical_need"],
             }
         return "This is a mock AI response. Configure DASHSCOPE_API_KEY for real AI responses."
+
+    async def analyze_image(self, image_url: str, prompt: str, response_format: str = "text") -> dict | str:
+        """Return a realistic mock vision analysis for development."""
+        if response_format == "json":
+            return {
+                "scene_description": "Mock analysis: image shows standing water on a residential street with a partially submerged vehicle. Visible debris suggests recent flooding.",
+                "detected_signals": ["flooded_road", "standing_water", "vehicle_accident", "debris"],
+                "severity_hint": "high",
+                "estimated_people_at_risk": 2,
+                "reasoning": "Water covers the road surface, a vehicle is stalled, and debris is scattered. These are consistent with flash-flood conditions.",
+                "confidence": 0.78,
+            }
+        return "Mock image analysis: flooded road detected. Configure DASHSCOPE_API_KEY for real AI vision analysis."
 
 
 def get_ai_adapter() -> AIAdapter:

@@ -4,13 +4,16 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   BrainCircuit, Scale, Target, Check, X, Loader2, MapPin, Users, Stethoscope,
   Sparkles, History, AlertTriangle, CheckCircle2, XCircle, MousePointerClick,
+  Camera, UploadCloud, FileText,
 } from 'lucide-react';
 import {
   incidentAPI,
   recommendationAPI,
+  evidenceAPI,
   type Incident,
   type Resource,
   type Recommendation,
+  type Evidence,
 } from '@/lib/api';
 import { cn, severityColor, formatDate, priorityLabel } from '@/lib/utils';
 
@@ -99,6 +102,7 @@ function Meta({ icon: Icon, label, value, valueClass }: {
 
 export function DetailPanel({ incident, resources, onChanged }: Props) {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -114,15 +118,26 @@ export function DetailPanel({ incident, resources, onChanged }: Props) {
     }
   }, []);
 
+  const loadEvidence = useCallback(async (id: string) => {
+    try {
+      const { data } = await evidenceAPI.listForIncident(id);
+      setEvidence(data);
+    } catch {
+      setEvidence([]);
+    }
+  }, []);
+
   useEffect(() => {
     setError('');
     setSuccess('');
     if (incidentId) {
       loadRecommendations(incidentId);
+      loadEvidence(incidentId);
     } else {
       setRecommendations([]);
+      setEvidence([]);
     }
-  }, [incidentId, loadRecommendations]);
+  }, [incidentId, loadRecommendations, loadEvidence]);
 
   // Auto-dismiss success message
   useEffect(() => {
@@ -195,6 +210,14 @@ export function DetailPanel({ incident, resources, onChanged }: Props) {
       await loadRecommendations(incident.id);
       setSuccess('Recommendation rejected');
     });
+
+  const handleFileUpload = async (file: File) => {
+    await runAction('upload-evidence', async () => {
+      await evidenceAPI.upload(incident!.id, file, true);
+      await loadEvidence(incident!.id);
+      setSuccess('Evidence uploaded and analyzed by AI');
+    });
+  };
 
   const resourceById = (id: string) => resources.find((r) => r.id === id);
   const triage = incident.triage_data as Record<string, any> | null;
@@ -543,6 +566,103 @@ export function DetailPanel({ incident, resources, onChanged }: Props) {
           </div>
         </Section>
       )}
+
+      {/* ===== Evidence Upload + AI Vision ===== */}
+      <Section icon={Camera} title="Evidence & AI Vision" accent="text-pink-400">
+        <div className="space-y-3">
+          <label
+            className={cn(
+              'flex items-center justify-center gap-2 w-full rounded-xl border border-dashed border-command-borderhover bg-command-bg/40',
+              'px-4 py-6 text-xs font-medium text-slate-400 hover:text-slate-300 hover:border-slate-500 hover:bg-command-bg/60 transition-all cursor-pointer',
+              loadingAction === 'upload-evidence' && 'opacity-60 pointer-events-none'
+            )}
+          >
+            {loadingAction === 'upload-evidence' ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <UploadCloud className="w-4 h-4" />
+            )}
+            {loadingAction === 'upload-evidence' ? 'Analyzing image…' : 'Upload photo / screenshot'}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file);
+                e.target.value = '';
+              }}
+            />
+          </label>
+
+          {evidence.length === 0 && (
+            <p className="text-[11px] text-slate-600 text-center">No evidence uploaded yet.</p>
+          )}
+
+          <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+            {evidence.map((ev) => {
+              const analysis = ev.ai_analysis as Record<string, any> | null;
+              const signals = (analysis?.detected_signals as string[]) ?? [];
+              return (
+                <div
+                  key={ev.id}
+                  className="rounded-xl border border-command-borderhover/70 bg-command-panel/40 p-3"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-xs font-medium truncate">{ev.file_name}</span>
+                    <span className="ml-auto text-[10px] text-slate-500">{ev.evidence_type}</span>
+                  </div>
+
+                  {ev.file_url && ev.evidence_type === 'image' && (
+                    <img
+                      src={ev.file_url.startsWith('http') ? ev.file_url : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') ?? ''}${ev.file_url}`}
+                      alt={ev.file_name}
+                      className="w-full h-28 object-cover rounded-lg border border-command-border mb-2"
+                    />
+                  )}
+
+                  {analysis ? (
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        {analysis.scene_description as string}
+                      </p>
+                      {signals.length > 0 && signals[0] !== 'none' && (
+                        <div className="flex flex-wrap gap-1">
+                          {signals.map((signal) => (
+                            <span
+                              key={signal}
+                              className="px-1.5 py-0.5 bg-pink-500/10 text-pink-300 border border-pink-500/25 rounded text-[10px]"
+                            >
+                              {signal.replace(/_/g, ' ')}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                        <span>
+                          Severity hint:{' '}
+                          <span className={cn('font-semibold', severityColor(analysis.severity_hint as string))}>
+                            {analysis.severity_hint as string}
+                          </span>
+                        </span>
+                        <span>
+                          Confidence:{' '}
+                          <span className="font-semibold tabular-nums">
+                            {(((analysis.confidence as number) ?? 0) * 100).toFixed(0)}%
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-500">No AI analysis available.</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </Section>
 
       {/* ===== Footer meta ===== */}
       <div className="text-[11px] text-slate-600 border-t border-command-border pt-3 flex items-center justify-between">

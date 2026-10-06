@@ -77,5 +77,8 @@ tmp/
 temp/
 *.tmp
 
+# Uploaded evidence / local storage
+uploads/
+
 # Qoder IDE
 .qoder/

@@ -6,6 +6,7 @@ import { CommandMap } from './CommandMap';
 import { DetailPanel } from './DetailPanel';
 import { KPIBar } from './KPIBar';
 import { ReportIncidentModal } from './ReportIncidentModal';
+import { AssistantChat } from './AssistantChat';
 import { incidentAPI, resourceAPI, dashboardAPI, hazardAPI } from '@/lib/api';
 import type { Incident, Resource } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -101,6 +102,9 @@ export function Dashboard() {
           }}
         />
       )}
+
+      {/* AI Command Assistant */}
+      <AssistantChat />
     </div>
   );
 }

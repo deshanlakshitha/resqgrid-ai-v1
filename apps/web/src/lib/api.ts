@@ -146,6 +146,32 @@ export const assistantAPI = {
     apiClient.post('/assistant/query', { question }),
 };
 
+export interface Evidence {
+  id: string;
+  incident_id: string;
+  file_url: string;
+  file_name: string;
+  evidence_type: string;
+  mime_type: string;
+  file_size_bytes?: number;
+  ai_analysis?: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export const evidenceAPI = {
+  listForIncident: (incidentId: string) =>
+    apiClient.get(`/evidence/incident/${incidentId}`),
+  upload: (incidentId: string, file: File, analyze: boolean = true) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiClient.post(`/evidence?incident_id=${incidentId}&analyze=${analyze}`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  analyze: (evidenceId: string) =>
+    apiClient.post(`/evidence/${evidenceId}/analyze`),
+};
+
 export const auditAPI = {
   list: (params?: Record<string, unknown>) =>
     apiClient.get('/audit/logs', { params }),
