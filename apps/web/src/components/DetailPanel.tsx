@@ -2,18 +2,99 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
+  BrainCircuit, Scale, Target, Check, X, Loader2, MapPin, Users, Stethoscope,
+  Sparkles, History, AlertTriangle, CheckCircle2, XCircle, MousePointerClick,
+} from 'lucide-react';
+import {
   incidentAPI,
   recommendationAPI,
   type Incident,
   type Resource,
   type Recommendation,
 } from '@/lib/api';
-import { severityColor, formatDate, priorityLabel } from '@/lib/utils';
+import { cn, severityColor, formatDate, priorityLabel } from '@/lib/utils';
 
 interface Props {
   incident: Incident | null;
   resources: Resource[];
   onChanged: () => Promise<void> | void;
+}
+
+const WEIGHT_LABELS: Record<string, string> = {
+  life_risk: 'Life Risk',
+  medical_urgency: 'Medical Urgency',
+  people_at_risk: 'People at Risk',
+  environmental_risk: 'Environmental Risk',
+  time_sensitivity: 'Time Sensitivity',
+  evidence_confidence: 'Evidence Confidence',
+};
+
+function PriorityGauge({ score }: { score: number }) {
+  const pct = Math.max(0, Math.min(100, score));
+  const color = score >= 75 ? '#ef4444' : score >= 50 ? '#f97316' : score >= 25 ? '#eab308' : '#22c55e';
+  const circumference = 2 * Math.PI * 40;
+  const offset = circumference - (pct / 100) * circumference;
+
+  return (
+    <div className="relative w-24 h-24 shrink-0">
+      <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="40" fill="none" stroke="#1e293b" strokeWidth="8" />
+        <circle
+          cx="50"
+          cy="50"
+          r="40"
+          fill="none"
+          stroke={color}
+          strokeWidth="8"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          className="transition-all duration-700"
+          style={{ filter: `drop-shadow(0 0 6px ${color}88)` }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-2xl font-bold tabular-nums" style={{ color }}>
+          {score.toFixed(0)}
+        </span>
+        <span className="text-[9px] text-slate-500 uppercase tracking-wider">/ 100</span>
+      </div>
+    </div>
+  );
+}
+
+function Section({ icon: Icon, title, children, accent }: {
+  icon: React.ElementType;
+  title: string;
+  children: React.ReactNode;
+  accent?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-command-borderhover/70 bg-command-panel/60 overflow-hidden">
+      <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-command-border bg-command-bg/40">
+        <Icon className={cn('w-3.5 h-3.5', accent ?? 'text-slate-400')} />
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{title}</h3>
+      </div>
+      <div className="p-3.5">{children}</div>
+    </div>
+  );
+}
+
+function Meta({ icon: Icon, label, value, valueClass }: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  valueClass?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-command-borderhover/70 bg-command-panel/60 p-3">
+      <div className="flex items-center gap-1.5 text-slate-500 mb-1">
+        <Icon className="w-3 h-3" />
+        <span className="text-[10px] uppercase tracking-wider font-medium">{label}</span>
+      </div>
+      <p className={cn('text-sm font-semibold', valueClass)}>{value}</p>
+    </div>
+  );
 }
 
 export function DetailPanel({ incident, resources, onChanged }: Props) {
@@ -24,7 +105,6 @@ export function DetailPanel({ incident, resources, onChanged }: Props) {
 
   const incidentId = incident?.id ?? null;
 
-  // Load existing recommendations whenever a new incident is selected
   const loadRecommendations = useCallback(async (id: string) => {
     try {
       const { data } = await recommendationAPI.list({ incident_id: id });
@@ -44,31 +124,29 @@ export function DetailPanel({ incident, resources, onChanged }: Props) {
     }
   }, [incidentId, loadRecommendations]);
 
+  // Auto-dismiss success message
+  useEffect(() => {
+    if (success) {
+      const t = setTimeout(() => setSuccess(''), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [success]);
+
   if (!incident) {
     return (
-      <div className="p-6 flex flex-col items-center justify-center h-full text-gray-500 text-sm gap-2">
-        <svg
-          className="w-10 h-10 text-gray-600"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
-          />
-        </svg>
-        <p>Select an incident to view details</p>
-        <p className="text-xs text-gray-600">Click a marker on the map or an item in the queue</p>
+      <div className="flex flex-col items-center justify-center h-full text-center p-8 gap-3">
+        <div className="w-16 h-16 rounded-2xl bg-command-raised border border-command-border flex items-center justify-center">
+          <MousePointerClick className="w-7 h-7 text-slate-600" />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-slate-400">No incident selected</p>
+          <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+            Click a card in the queue or a marker on the map to open the full workflow
+          </p>
+        </div>
       </div>
     );
   }
-
-  const refreshIncident = async () => {
-    await onChanged();
-  };
 
   const runAction = async (name: string, action: () => Promise<void>) => {
     setLoadingAction(name);
@@ -76,10 +154,10 @@ export function DetailPanel({ incident, resources, onChanged }: Props) {
     setSuccess('');
     try {
       await action();
-      await refreshIncident();
+      await onChanged();
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : `Action failed: ${name}`);
+      setError(typeof detail === 'string' ? detail : `Action failed. Please try again.`);
     } finally {
       setLoadingAction(null);
     }
@@ -108,7 +186,7 @@ export function DetailPanel({ incident, resources, onChanged }: Props) {
     runAction(`approve-${rec.id}`, async () => {
       await recommendationAPI.approve(rec.id);
       await loadRecommendations(incident.id);
-      setSuccess('Recommendation approved (human decision logged)');
+      setSuccess('Approved — dispatch decision logged to audit trail');
     });
 
   const handleReject = (rec: Recommendation) =>
@@ -121,104 +199,157 @@ export function DetailPanel({ incident, resources, onChanged }: Props) {
   const resourceById = (id: string) => resources.find((r) => r.id === id);
   const triage = incident.triage_data as Record<string, any> | null;
   const pendingCount = recommendations.filter((r) => r.status === 'PENDING').length;
+  const hasScore = incident.priority_score != null;
+
+  const actions = [
+    {
+      key: 'triage',
+      label: 'Run AI Triage',
+      icon: BrainCircuit,
+      gradient: 'from-violet-600 to-violet-500',
+      glow: 'shadow-glow-blue',
+      handler: handleTriage,
+      hint: 'AI analyzes the report',
+    },
+    {
+      key: 'priority',
+      label: 'Calculate Priority',
+      icon: Scale,
+      gradient: 'from-purple-600 to-fuchsia-500',
+      glow: 'shadow-glow-blue',
+      handler: handlePriority,
+      hint: 'Deterministic weighted score',
+    },
+    {
+      key: 'recommend',
+      label: 'Get Recommendations',
+      icon: Target,
+      gradient: 'from-emerald-600 to-emerald-500',
+      glow: 'shadow-glow-green',
+      handler: handleRecommend,
+      hint: 'Match nearby resources',
+    },
+  ];
 
   return (
-    <div className="p-4 space-y-4">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <span className={`text-xs px-2 py-0.5 rounded font-medium ${severityColor(incident.severity)}`}>
-            {incident.severity.toUpperCase()}
+    <div className="p-3.5 space-y-3.5 animate-fade-in">
+      {/* ===== Header ===== */}
+      <div className="rounded-xl border border-command-borderhover/70 bg-gradient-to-b from-command-raised to-command-panel p-4">
+        <div className="flex items-center gap-2 mb-2.5">
+          <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-md tracking-wider', severityColor(incident.severity))}>
+            {incident.severity?.toUpperCase()}
           </span>
-          <span className="text-xs text-gray-400 capitalize">
-            {incident.status.replace('_', ' ')}
+          <span className="text-[11px] px-2 py-0.5 rounded-md bg-command-bg text-slate-400 border border-command-border capitalize">
+            {incident.status?.replace('_', ' ')}
           </span>
           {pendingCount > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded font-medium bg-yellow-500/20 text-yellow-400 border border-yellow-600/40">
-              {pendingCount} pending approval
+            <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-md bg-yellow-500/15 text-yellow-400 border border-yellow-500/40 animate-blink">
+              {pendingCount} PENDING
             </span>
           )}
         </div>
-        <h2 className="text-lg font-bold leading-snug">{incident.title}</h2>
-        <p className="text-sm text-gray-400 mt-1">{incident.description}</p>
+        <h2 className="text-base font-bold leading-snug">{incident.title}</h2>
+        <p className="text-[13px] text-slate-400 mt-1.5 leading-relaxed">{incident.description}</p>
+        {incident.address && (
+          <p className="flex items-center gap-1.5 text-xs text-slate-500 mt-2">
+            <MapPin className="w-3.5 h-3.5" />
+            {incident.address}
+          </p>
+        )}
       </div>
 
-      {/* Alerts */}
+      {/* ===== Alerts ===== */}
       {error && (
-        <div className="bg-red-900/40 border border-red-700 rounded-lg px-3 py-2 text-sm text-red-300">
+        <div className="flex items-start gap-2.5 bg-red-500/10 border border-red-500/30 rounded-xl px-3.5 py-2.5 text-sm text-red-400 animate-fade-in">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           {error}
         </div>
       )}
       {success && (
-        <div className="bg-green-900/40 border border-green-700 rounded-lg px-3 py-2 text-sm text-green-300">
+        <div className="flex items-start gap-2.5 bg-green-500/10 border border-green-500/30 rounded-xl px-3.5 py-2.5 text-sm text-green-400 animate-fade-in">
+          <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
           {success}
         </div>
       )}
 
-      {/* Meta */}
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="bg-command-bg rounded-lg p-2.5">
-          <span className="text-gray-500">Type</span>
-          <p className="font-medium uppercase">{incident.incident_type}</p>
-        </div>
-        <div className="bg-command-bg rounded-lg p-2.5">
-          <span className="text-gray-500">Priority Score</span>
-          <p className="font-medium">
-            {incident.priority_score?.toFixed(1) ?? 'N/A'}{' '}
-            <span className="text-gray-400">
-              ({priorityLabel(incident.priority_score ?? null)})
+      {/* ===== Priority gauge + quick meta ===== */}
+      <div className="flex gap-3.5">
+        {hasScore ? (
+          <div className="flex flex-col items-center rounded-xl border border-command-borderhover/70 bg-command-panel/60 p-3 shrink-0">
+            <PriorityGauge score={incident.priority_score!} />
+            <span
+              className={cn(
+                'mt-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded',
+                incident.priority_score! >= 75
+                  ? 'text-red-400'
+                  : incident.priority_score! >= 50
+                    ? 'text-orange-400'
+                    : incident.priority_score! >= 25
+                      ? 'text-yellow-400'
+                      : 'text-green-400'
+              )}
+            >
+              {priorityLabel(incident.priority_score ?? null)}
             </span>
-          </p>
-        </div>
-        <div className="bg-command-bg rounded-lg p-2.5">
-          <span className="text-gray-500">People at Risk</span>
-          <p className="font-medium">{incident.people_at_risk ?? 'Unknown'}</p>
-        </div>
-        <div className="bg-command-bg rounded-lg p-2.5">
-          <span className="text-gray-500">Medical Need</span>
-          <p className="font-medium">{incident.medical_need ? 'Yes' : 'No'}</p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-command-panel/40 p-4 w-24 shrink-0">
+            <Scale className="w-6 h-6 text-slate-700 mb-1" />
+            <span className="text-[9px] text-slate-600 uppercase tracking-wider text-center leading-tight">
+              No score yet
+            </span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-2 flex-1">
+          <Meta icon={Users} label="People at Risk" value={String(incident.people_at_risk ?? 'Unknown')} />
+          <Meta
+            icon={Stethoscope}
+            label="Medical Need"
+            value={incident.medical_need ? 'Yes' : 'No'}
+            valueClass={incident.medical_need ? 'text-red-400' : undefined}
+          />
         </div>
       </div>
 
-      {/* AI Triage Data */}
+      {/* ===== AI Triage Result ===== */}
       {triage && (
-        <div className="bg-command-bg rounded-lg p-3">
-          <h3 className="text-xs font-semibold uppercase text-gray-400 mb-2">
-            AI Triage Result
-          </h3>
-          <div className="text-xs space-y-1.5">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Confidence</span>
-              <span className="font-medium">
-                {incident.triage_confidence != null
-                  ? `${(incident.triage_confidence * 100).toFixed(0)}%`
-                  : 'N/A'}
-              </span>
+        <Section icon={Sparkles} title="AI Triage Result" accent="text-violet-400">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-500">Model Confidence</span>
+              <div className="flex items-center gap-2">
+                <div className="w-24 h-1.5 rounded-full bg-command-bg overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-violet-600 to-violet-400 rounded-full"
+                    style={{ width: `${(incident.triage_confidence ?? 0) * 100}%` }}
+                  />
+                </div>
+                <span className="text-xs font-bold text-violet-300 tabular-nums">
+                  {incident.triage_confidence != null ? `${(incident.triage_confidence * 100).toFixed(0)}%` : '—'}
+                </span>
+              </div>
             </div>
-            {triage.reason_codes && (
+
+            {triage.reason_codes && (triage.reason_codes as string[]).length > 0 && (
               <div>
-                <span className="text-gray-500">Reason codes</span>
-                <div className="flex flex-wrap gap-1 mt-1">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Reason Codes</p>
+                <div className="flex flex-wrap gap-1.5">
                   {(triage.reason_codes as string[]).map((code) => (
-                    <span
-                      key={code}
-                      className="px-1.5 py-0.5 bg-blue-900/40 text-blue-300 rounded text-[10px]"
-                    >
+                    <span key={code} className="px-2 py-0.5 bg-blue-500/10 text-blue-300 border border-blue-500/25 rounded-md text-[10px] font-mono">
                       {code}
                     </span>
                   ))}
                 </div>
               </div>
             )}
+
             {incident.immediate_needs && incident.immediate_needs.length > 0 && (
               <div>
-                <span className="text-gray-500">Immediate needs</span>
-                <div className="flex flex-wrap gap-1 mt-1">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Immediate Needs</p>
+                <div className="flex flex-wrap gap-1.5">
                   {incident.immediate_needs.map((need) => (
-                    <span
-                      key={need}
-                      className="px-1.5 py-0.5 bg-red-900/40 text-red-300 rounded text-[10px]"
-                    >
+                    <span key={need} className="px-2 py-0.5 bg-red-500/10 text-red-300 border border-red-500/25 rounded-md text-[10px] font-medium">
                       {need}
                     </span>
                   ))}
@@ -226,156 +357,197 @@ export function DetailPanel({ incident, resources, onChanged }: Props) {
               </div>
             )}
           </div>
-        </div>
+        </Section>
       )}
 
-      {/* Priority breakdown */}
+      {/* ===== Priority Breakdown ===== */}
       {incident.priority_components && (
-        <div className="bg-command-bg rounded-lg p-3">
-          <h3 className="text-xs font-semibold uppercase text-gray-400 mb-2">
-            Priority Breakdown (explainable)
-          </h3>
-          <div className="space-y-1.5">
+        <Section icon={Scale} title="Priority Breakdown" accent="text-purple-400">
+          <div className="space-y-2.5">
             {Object.entries(incident.priority_components).map(([key, value]) => (
               <div key={key}>
-                <div className="flex justify-between text-xs mb-0.5">
-                  <span className="text-gray-400 capitalize">
-                    {key.replace(/_/g, ' ')}
+                <div className="flex justify-between text-[11px] mb-1">
+                  <span className="text-slate-400">{WEIGHT_LABELS[key] ?? key.replace(/_/g, ' ')}</span>
+                  <span className="text-slate-300 font-semibold tabular-nums">
+                    {(value as number).toFixed(1)}
                   </span>
-                  <span className="text-gray-300">{(value as number).toFixed(1)}</span>
                 </div>
-                <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-command-bg rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-command-accent rounded-full"
+                    className="h-full bg-gradient-to-r from-purple-600 to-fuchsia-400 rounded-full transition-all duration-700"
                     style={{ width: `${Math.min(100, (value as number) * 100)}%` }}
                   />
                 </div>
               </div>
             ))}
+            <p className="text-[10px] text-slate-600 leading-relaxed pt-1 border-t border-command-border">
+              Deterministic weighted sum — same input always produces the same score. Fully auditable.
+            </p>
           </div>
-        </div>
+        </Section>
       )}
 
-      {/* Action Buttons */}
-      <div className="flex flex-col gap-2">
-        <button
-          onClick={handleTriage}
-          disabled={loadingAction !== null}
-          className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {loadingAction === 'triage' ? 'Running AI Triage...' : '🤖 Run AI Triage'}
-        </button>
-        <button
-          onClick={handlePriority}
-          disabled={loadingAction !== null}
-          className="w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {loadingAction === 'priority' ? 'Calculating...' : '⚖️ Calculate Priority'}
-        </button>
-        <button
-          onClick={handleRecommend}
-          disabled={loadingAction !== null}
-          className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {loadingAction === 'recommend' ? 'Matching Resources...' : '🎯 Get Recommendations'}
-        </button>
+      {/* ===== Action Buttons ===== */}
+      <div className="grid grid-cols-3 gap-2">
+        {actions.map((a) => {
+          const busy = loadingAction === a.key;
+          const disabled = loadingAction !== null;
+          return (
+            <button
+              key={a.key}
+              onClick={a.handler}
+              disabled={disabled}
+              title={a.hint}
+              className={cn(
+                'group flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl text-[11px] font-semibold transition-all',
+                'bg-gradient-to-b hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0 disabled:pointer-events-auto cursor-pointer',
+                a.gradient
+              )}
+            >
+              {busy ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <a.icon className="w-5 h-5 transition-transform group-hover:scale-110" />
+              )}
+              <span className="text-center leading-tight">
+                {busy ? 'Working…' : a.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Recommendations */}
+      {/* ===== Recommendations ===== */}
       {recommendations.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase text-gray-400">
-            AI Recommendations ({recommendations.length}) — Human approval required
-          </h3>
-          {recommendations.map((rec) => {
-            const resource = resourceById(rec.resource_id);
-            const isBusy = loadingAction === `approve-${rec.id}` || loadingAction === `reject-${rec.id}`;
-            return (
-              <div
-                key={rec.id}
-                className={`rounded-lg p-3 text-xs border ${
-                  rec.status === 'PENDING'
-                    ? 'bg-command-bg border-yellow-600/40'
-                    : rec.status === 'APPROVED'
-                      ? 'bg-green-950/40 border-green-700/50'
-                      : 'bg-red-950/30 border-red-800/40'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-semibold text-sm">
-                      {resource?.name ?? 'Unknown resource'}
-                      <span className="text-gray-400 font-normal">
-                        {' '}
-                        ({resource?.resource_type ?? '?'})
-                      </span>
-                    </p>
-                    <p className="text-gray-400 mt-0.5">
-                      Confidence: <span className="text-gray-200">{(rec.confidence * 100).toFixed(0)}%</span>
-                      {rec.estimated_eta_minutes != null && (
-                        <> · ETA: <span className="text-gray-200">{rec.estimated_eta_minutes.toFixed(1)} min</span></>
+        <Section icon={Target} title={`Recommendations — Human Approval Required`} accent="text-emerald-400">
+          <div className="space-y-2.5">
+            {recommendations.map((rec) => {
+              const resource = resourceById(rec.resource_id);
+              const isBusy =
+                loadingAction === `approve-${rec.id}` || loadingAction === `reject-${rec.id}`;
+              const approved = rec.status === 'APPROVED';
+              const rejected = rec.status === 'REJECTED';
+
+              return (
+                <div
+                  key={rec.id}
+                  className={cn(
+                    'rounded-xl border p-3 transition-all',
+                    rec.status === 'PENDING'
+                      ? 'border-yellow-500/30 bg-yellow-500/[0.04]'
+                      : approved
+                        ? 'border-green-500/30 bg-green-500/[0.04]'
+                        : 'border-red-500/25 bg-red-500/[0.03]'
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">
+                        {resource?.name ?? 'Unknown resource'}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        {resource?.resource_type ?? '—'}
+                        {resource?.organization ? ` · ${resource.organization}` : ''}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        'shrink-0 text-[9px] font-bold px-2 py-1 rounded-md tracking-wider flex items-center gap-1',
+                        rec.status === 'PENDING'
+                          ? 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30'
+                          : approved
+                            ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                            : 'bg-red-500/15 text-red-400 border border-red-500/30'
                       )}
-                    </p>
+                    >
+                      {rec.status === 'PENDING' && <History className="w-3 h-3" />}
+                      {rec.status}
+                    </span>
                   </div>
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                      rec.status === 'PENDING'
-                        ? 'bg-yellow-500/20 text-yellow-400'
-                        : rec.status === 'APPROVED'
-                          ? 'bg-green-500/20 text-green-400'
-                          : 'bg-red-500/20 text-red-400'
-                    }`}
-                  >
-                    {rec.status}
-                  </span>
-                </div>
 
-                {rec.compatibility_reasons && rec.compatibility_reasons.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {rec.compatibility_reasons.map((reason) => (
-                      <span
-                        key={reason}
-                        className="px-1.5 py-0.5 bg-gray-700/60 text-gray-300 rounded text-[10px]"
-                      >
-                        {reason}
+                  <div className="flex items-center gap-4 mt-2.5 text-[11px]">
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-slate-500">Confidence</span>
+                      <span className="font-bold text-emerald-400 tabular-nums">
+                        {(rec.confidence * 100).toFixed(0)}%
                       </span>
-                    ))}
+                    </span>
+                    {rec.estimated_eta_minutes != null && (
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-slate-500">ETA</span>
+                        <span className="font-bold text-blue-400 tabular-nums">
+                          {rec.estimated_eta_minutes.toFixed(0)} min
+                        </span>
+                      </span>
+                    )}
                   </div>
-                )}
 
-                {rec.reasoning && (
-                  <p className="text-gray-500 mt-2 italic">&ldquo;{rec.reasoning}&rdquo;</p>
-                )}
+                  {rec.compatibility_reasons && rec.compatibility_reasons.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {rec.compatibility_reasons.slice(0, 4).map((reason) => (
+                        <span
+                          key={reason}
+                          className="px-1.5 py-0.5 bg-command-raised text-slate-400 border border-command-border rounded text-[10px]"
+                        >
+                          {reason}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
-                {rec.status === 'PENDING' && (
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      onClick={() => handleApprove(rec)}
-                      disabled={isBusy}
-                      className="flex-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded font-medium disabled:opacity-50"
+                  {rec.status === 'PENDING' ? (
+                    <div className="grid grid-cols-2 gap-2 mt-3">
+                      <button
+                        onClick={() => handleApprove(rec)}
+                        disabled={isBusy}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 rounded-lg text-xs font-semibold transition-all hover:-translate-y-px active:translate-y-0 disabled:opacity-50"
+                      >
+                        {loadingAction === `approve-${rec.id}` ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5" />
+                        )}
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleReject(rec)}
+                        disabled={isBusy}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 bg-command-raised border border-red-500/40 text-red-400 hover:bg-red-500/10 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                      >
+                        {loadingAction === `reject-${rec.id}` ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <X className="w-3.5 h-3.5" />
+                        )}
+                        Reject
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      className={cn(
+                        'flex items-center gap-1.5 mt-2.5 text-[11px] font-medium',
+                        approved ? 'text-green-400' : 'text-red-400'
+                      )}
                     >
-                      {loadingAction === `approve-${rec.id}` ? 'Approving...' : '✓ Approve & Dispatch'}
-                    </button>
-                    <button
-                      onClick={() => handleReject(rec)}
-                      disabled={isBusy}
-                      className="flex-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 rounded font-medium disabled:opacity-50"
-                    >
-                      {loadingAction === `reject-${rec.id}` ? 'Rejecting...' : '✕ Reject'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                      {approved ? (
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      ) : (
+                        <XCircle className="w-3.5 h-3.5" />
+                      )}
+                      {approved ? 'Human-approved decision logged' : 'Rejected by operator'}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Section>
       )}
 
-      {/* Timestamps */}
-      <div className="text-xs text-gray-500 border-t border-command-border pt-3 space-y-0.5">
-        <p>Reported by: {incident.reporter_name ?? 'Unknown'}</p>
-        <p>Created: {formatDate(incident.created_at)}</p>
-        <p>Updated: {formatDate(incident.updated_at)}</p>
+      {/* ===== Footer meta ===== */}
+      <div className="text-[11px] text-slate-600 border-t border-command-border pt-3 flex items-center justify-between">
+        <span>Reported by {incident.reporter_name ?? 'Unknown'}</span>
+        <span className="tabular-nums">{formatDate(incident.created_at)}</span>
       </div>
     </div>
   );
