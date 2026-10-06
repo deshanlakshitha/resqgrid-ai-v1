@@ -2,7 +2,18 @@
 
 > **AI recommends. Humans approve. Every important decision is explainable and auditable.**
 
-ResQGrid AI is a production-quality MVP that helps emergency operators collect incidents, use AI to structure and triage reports, calculate explainable priority, match resources, and coordinate human-approved response actions.
+ResQGrid AI is a demonstration and decision-support prototype that explores incident reporting, advisory triage, explainable priority, resource matching, and human-approved assignments. It is not certified or approved for real emergency use; use fictional data only.
+
+## Complete Documentation Package
+
+The following source-verified guide covers the current implementation, user workflows, features, architecture, algorithms, API, setup, deployment, security, testing, troubleshooting, and limitations. Consult it for current behavior; some older sections below describe earlier versions or design intentions.
+
+| Document | PDF | Editable Word | Markdown source |
+| --- | --- | --- | --- |
+| Complete project guide | [Download PDF](docs/exports/ResQGrid-AI-Complete-Guide.pdf) | [Download DOCX](docs/exports/ResQGrid-AI-Complete-Guide.docx) | [Read guide](docs/PROJECT_DOCUMENTATION.md) |
+| Documentary script and recording plan | [Download PDF](docs/exports/ResQGrid-AI-Documentary-Script.pdf) | [Download DOCX](docs/exports/ResQGrid-AI-Documentary-Script.docx) | [Read script](docs/DOCUMENTARY_SCRIPT.md) |
+
+The script includes an approximately 15-minute scene plan, narration, demo walkthrough, recording checklist, and a 90-second cut-down. It is a script, not a rendered video. Regenerate both PDF/DOCX editions with `python docs/generate_documents.py`; validate them with `python docs/generate_documents.py --check`. Documentation-only dependencies are `python-docx`, `reportlab`, and `PyMuPDF`. See [LICENSE](LICENSE) and [DISCLAIMER](DISCLAIMER.md) before use.
 
 ---
 
