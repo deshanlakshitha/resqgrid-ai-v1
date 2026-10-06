@@ -123,13 +123,7 @@ export function LocationPickerMap({ latitude, longitude, onChange }: Props) {
 
       {/* Search box */}
       <div ref={searchBoxRef} className="absolute top-2.5 left-2.5 right-[7.5rem] z-10">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            runSearch(query);
-          }}
-          className="relative"
-        >
+        <div className="relative">
           <div className="flex items-center gap-1.5 bg-command-panel/95 backdrop-blur border border-command-border rounded-lg shadow-panel overflow-hidden pr-1">
             <Search className="w-3.5 h-3.5 text-slate-400 ml-2.5 shrink-0" />
             <input
@@ -138,6 +132,13 @@ export function LocationPickerMap({ latitude, longitude, onChange }: Props) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => results.length > 0 && setShowResults(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  runSearch(query);
+                }
+              }}
               placeholder="Search place…"
               className="flex-1 bg-transparent border-none outline-none py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 min-w-0"
             />
@@ -151,7 +152,8 @@ export function LocationPickerMap({ latitude, longitude, onChange }: Props) {
               </button>
             )}
             <button
-              type="submit"
+              type="button"
+              onClick={() => runSearch(query)}
               disabled={searching || !query.trim()}
               className="px-2 py-1 text-[11px] font-medium text-slate-300 hover:text-white disabled:opacity-40 disabled:hover:text-slate-300 transition-colors"
             >
@@ -181,7 +183,7 @@ export function LocationPickerMap({ latitude, longitude, onChange }: Props) {
               )}
             </div>
           )}
-        </form>
+        </div>
       </div>
 
       {/* Hint chip */}
