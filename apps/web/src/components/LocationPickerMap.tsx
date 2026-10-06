@@ -122,9 +122,9 @@ export function LocationPickerMap({ latitude, longitude, onChange }: Props) {
       )}
 
       {/* Search box */}
-      <div ref={searchBoxRef} className="absolute top-2.5 left-2.5 right-[7.5rem] z-10">
+      <div ref={searchBoxRef} className="absolute top-2.5 left-2.5 right-[7.5rem] z-20">
         <div className="relative">
-          <div className="flex items-center gap-1.5 bg-command-panel/95 backdrop-blur border border-command-border rounded-lg shadow-panel overflow-hidden pr-1">
+          <div className="flex items-center gap-1.5 bg-command-panel border border-command-border rounded-lg shadow-panel overflow-hidden pr-1">
             <Search className="w-3.5 h-3.5 text-slate-400 ml-2.5 shrink-0" />
             <input
               ref={searchInputRef}
@@ -163,17 +163,18 @@ export function LocationPickerMap({ latitude, longitude, onChange }: Props) {
 
           {/* Results dropdown */}
           {showResults && (results.length > 0 || searchError) && (
-            <div className="absolute top-full left-0 right-0 mt-1.5 bg-command-panel/98 backdrop-blur border border-command-border rounded-lg shadow-panel overflow-hidden">
+            <div className="absolute top-full left-0 right-0 mt-1.5 bg-[#0b1220] border border-slate-600 rounded-lg shadow-2xl overflow-hidden">
               {searchError ? (
-                <div className="px-3 py-2 text-[11px] text-red-400">{searchError}</div>
+                <div className="px-3 py-2 text-[11px] text-red-400 bg-[#0b1220]">{searchError}</div>
               ) : (
                 <ul className="max-h-44 overflow-y-auto custom-scrollbar">
                   {results.map((r, idx) => (
-                    <li key={idx}>
+                    <li key={idx} className="border-b border-slate-700/60 last:border-0">
                       <button
                         type="button"
                         onClick={() => selectResult(r)}
-                        className="w-full text-left px-3 py-2 text-[11px] text-slate-300 hover:bg-command-raised hover:text-white transition-colors border-b border-command-border/50 last:border-0"
+                        className="w-full text-left px-3 py-2.5 text-[11px] text-slate-200 bg-[#0b1220] hover:bg-slate-800 hover:text-white transition-colors"
+                        title={r.display_name}
                       >
                         <span className="font-medium block truncate">{r.display_name}</span>
                       </button>
