@@ -37,6 +37,12 @@ yarn-error.log*
 .next/
 out/
 apps/web/.next/
+apps/web/dist/
+
+# Capacitor / Android local build tooling
+apps/web/android-sdk/
+apps/web/jdk21/
+apps/web/android/app/build/
 
 # IDE
 .vscode/
