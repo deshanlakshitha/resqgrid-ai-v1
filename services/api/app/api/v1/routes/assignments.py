@@ -1,20 +1,60 @@
-"""Assignment routes: create and update resource assignments."""
+"""Assignment routes: create and update resource assignments, and AI optimization."""
 
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.allocation.optimizer import optimize_assignments
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_role
+from app.models.entities import Hazard, HazardStatus
+from app.models.incident import Incident, IncidentStatus
 from app.models.user import User, UserRole
 from app.models.entities import Assignment, AssignmentStatus
 from app.models.resource import Resource, ResourceStatus
-from app.schemas.schemas import AssignmentResponse, AssignmentUpdate
+from app.schemas.schemas import AssignmentPlan, AssignmentResponse, AssignmentUpdate
 
 router = APIRouter()
+
+
+class OptimizeRequest(BaseModel):
+    """Optional filter: restrict optimization to specific incidents."""
+    incident_ids: list[uuid.UUID] | None = None
+
+
+@router.post("/optimize", response_model=AssignmentPlan)
+async def optimize_assignments_endpoint(
+    data: OptimizeRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.DISPATCHER, UserRole.ADMIN)),
+):
+    """Compute the globally optimal incident->resource assignment plan.
+
+    Uses the Hungarian (Kuhn-Munkres) algorithm over travel distance, active
+    hazard penalties, and type compatibility. Advisory only — dispatchers
+    approve every actual assignment.
+    """
+    query = select(Incident).where(
+        Incident.is_deleted == False,
+        Incident.status.notin_([IncidentStatus.RESOLVED, IncidentStatus.CLOSED]),
+    )
+    if data and data.incident_ids:
+        query = query.where(Incident.id.in_(data.incident_ids))
+    incidents = (await db.execute(query)).scalars().all()
+
+    resources = (await db.execute(
+        select(Resource).where(Resource.is_deleted == False, Resource.status == ResourceStatus.AVAILABLE)
+    )).scalars().all()
+
+    hazards = (await db.execute(
+        select(Hazard).where(Hazard.is_deleted == False, Hazard.status == HazardStatus.ACTIVE)
+    )).scalars().all()
+
+    return optimize_assignments(list(incidents), list(resources), list(hazards))
 
 
 @router.post("", response_model=AssignmentResponse, status_code=status.HTTP_201_CREATED)

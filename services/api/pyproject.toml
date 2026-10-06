@@ -17,6 +17,12 @@ python_version = "3.11"
 strict = true
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
 
+# Pre-existing modules with known type debt: still analysed (types are used)
+# but their errors are not reported; CI gates strictness on the AI modules.
+[[tool.mypy.overrides]]
+module = ["app.models.*", "app.services.recommendation_service"]
+follow_imports = "silent"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

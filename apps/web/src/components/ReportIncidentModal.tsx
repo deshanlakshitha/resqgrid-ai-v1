@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import {
   Waves, Flame, Mountain, Activity, Car, HeartPulse, Biohazard, Building2,
-  AlertTriangle, X, Loader2, MapPin, Users, type LucideIcon,
+  AlertTriangle, X, Loader2, MapPin, Users, CloudOff, type LucideIcon,
 } from 'lucide-react';
-import { incidentAPI } from '@/lib/api';
+import { createIncidentResilient } from '@/lib/incidentSync';
 import { cn } from '@/lib/utils';
 import { LocationPickerMap } from './LocationPickerMap';
 
@@ -36,13 +36,14 @@ export function ReportIncidentModal({ onClose, onCreated }: Props) {
   const [medicalNeed, setMedicalNeed] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [queued, setQueued] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const { data } = await incidentAPI.create({
+      const result = await createIncidentResilient({
         title,
         description,
         incident_type: incidentType,
@@ -51,7 +52,13 @@ export function ReportIncidentModal({ onClose, onCreated }: Props) {
         people_at_risk: peopleAtRisk ? parseInt(peopleAtRisk, 10) : undefined,
         medical_need: medicalNeed,
       });
-      onCreated(data.id);
+      if (result.queued) {
+        // Device offline: report stored locally, auto-syncs on reconnect.
+        setQueued(true);
+        window.setTimeout(onClose, 2600);
+      } else {
+        onCreated(result.id);
+      }
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       setError(typeof detail === 'string' ? detail : 'Failed to create incident');
@@ -103,6 +110,13 @@ export function ReportIncidentModal({ onClose, onCreated }: Props) {
             <div className="flex items-start gap-2.5 bg-red-500/10 border border-red-500/30 rounded-xl px-3.5 py-2.5 text-sm text-red-400 animate-fade-in">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
               {error}
+            </div>
+          )}
+
+          {queued && (
+            <div className="flex items-start gap-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3.5 py-2.5 text-sm text-amber-300 animate-fade-in">
+              <CloudOff className="w-4 h-4 mt-0.5 shrink-0" />
+              You appear to be offline. This report is saved on this device and will sync automatically when the connection returns.
             </div>
           )}
 
@@ -240,7 +254,7 @@ export function ReportIncidentModal({ onClose, onCreated }: Props) {
           {/* Submit */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || queued}
             className="w-full py-3 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 rounded-xl text-sm font-bold shadow-glow-red hover:-translate-y-px active:translate-y-0 transition-all disabled:opacity-50 disabled:hover:translate-y-0 flex items-center justify-center gap-2"
           >
             {loading ? (

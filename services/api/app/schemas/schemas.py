@@ -51,6 +51,7 @@ class UserResponse(BaseModel):
 # ============================================================================
 
 class IncidentCreate(BaseModel):
+    id: Optional[uuid.UUID] = Field(None, description="Client-generated UUID for idempotent offline replay (server-generated when omitted)")
     title: str = Field(..., min_length=1, max_length=500)
     description: str = Field(..., min_length=1)
     incident_type: str = Field("other")
@@ -218,6 +219,31 @@ class AssignmentResponse(BaseModel):
 class AssignmentUpdate(BaseModel):
     status: str
     notes: Optional[str] = None
+
+
+class AssignmentPair(BaseModel):
+    """One incident->resource pair in an optimized assignment plan."""
+    incident_id: uuid.UUID
+    incident_title: str
+    resource_id: uuid.UUID
+    resource_name: str
+    resource_type: str
+    cost_km: float
+    distance_km: float
+    estimated_eta_minutes: float
+    hazard_penalty: float
+    hazard_warnings: list[str] = Field(default_factory=list)
+
+
+class AssignmentPlan(BaseModel):
+    """Globally optimal assignment plan (Hungarian algorithm) vs greedy baseline."""
+    assignments: list[AssignmentPair]
+    unassigned_incident_ids: list[str] = Field(default_factory=list)
+    algorithm: str
+    total_cost_km: float
+    greedy_cost_km: float
+    savings_km: float
+    savings_pct: float
 
 
 # ============================================================================

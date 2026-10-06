@@ -1,33 +1,29 @@
-# ResQGrid AI — Quick Start (Windows)
+# ResQGrid AI — Quick Start
 
-After Docker Desktop is fully set up (green status in system tray):
+Cross-platform (Windows PowerShell, macOS/Linux shell). From the project root:
 
 ## Step 1: Start Docker Services
 
-Open PowerShell in the project root:
-
-```powershell
-cd "D:\Cursor Projects\ResQGrid AI"
+```bash
 docker compose up -d postgres redis
-```
-
-Wait for them to be healthy:
-
-```powershell
-docker compose ps
+docker compose ps        # wait until both are "healthy"
 ```
 
 ## Step 2: Start the API Backend
 
 Option A — Docker (recommended):
-```powershell
+
+```bash
 docker compose up -d api
 ```
 
-Option B — Run locally with Python 3.11:
-```powershell
-cd services\api
-.venv\Scripts\activate
+Option B — Locally with Python 3.11:
+
+```bash
+cd services/api
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 alembic upgrade head
 python -m app.seed
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -35,8 +31,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ## Step 3: Start the Frontend
 
-```powershell
-cd apps\web
+```bash
+cd apps/web
 npm install
 npm run dev
 ```
@@ -46,6 +42,12 @@ npm run dev
 - Frontend: http://localhost:3000
 - API Docs: http://localhost:8000/docs
 
+## AI Configuration (optional)
+
+Triage works offline out of the box via the built-in local engine (ensemble mode
+`offline_local_only`). To add an LLM ensemble partner, set either `GEMINI_API_KEY`
+or `DASHSCOPE_API_KEY` in `services/api/.env`.
+
 ## Demo Credentials
 
 | Role | Email | Password |
@@ -54,3 +56,15 @@ npm run dev
 | Dispatcher | dispatcher@resqgrid.local | dispatch123 |
 | Responder | responder1@resqgrid.local | respond123 |
 | Citizen | citizen@resqgrid.local | citizen123 |
+
+## Demo Highlight: AI Optimization
+
+Log in as dispatcher/admin, create a few incidents, then:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/assignments/optimize \
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d '{}'
+```
+
+Returns the globally optimal incident→resource plan (Hungarian algorithm) with
+kilometers saved vs the greedy baseline.

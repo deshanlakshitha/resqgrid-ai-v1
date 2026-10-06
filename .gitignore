@@ -88,3 +88,7 @@ uploads/
 
 # Qoder IDE
 .qoder/
+
+# Mobile build artifacts
+*.apk
+*.aab

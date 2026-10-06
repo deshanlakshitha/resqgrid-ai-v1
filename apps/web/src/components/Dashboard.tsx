@@ -12,6 +12,7 @@ import { incidentAPI, resourceAPI, dashboardAPI, hazardAPI } from '@/lib/api';
 import type { Incident, Resource } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
+import { startIncidentSync } from '@/lib/incidentSync';
 
 export function Dashboard() {
   const { user, logout } = useAuth();
@@ -47,6 +48,11 @@ export function Dashboard() {
     refreshAll();
     const interval = setInterval(refreshAll, 15000);
     return () => clearInterval(interval);
+  }, [refreshAll]);
+
+  // Offline outbox: replay queued incident reports when connectivity returns.
+  useEffect(() => {
+    startIncidentSync(refreshAll);
   }, [refreshAll]);
 
   const selectedIncident = incidents.find((i) => i.id === selectedIncidentId) ?? null;

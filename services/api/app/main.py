@@ -6,6 +6,7 @@ AI recommends. Humans approve. Every important decision is explainable and audit
 """
 
 from contextlib import asynccontextmanager
+import logging
 
 import structlog
 from fastapi import FastAPI
@@ -17,6 +18,30 @@ from app.core.config import settings
 from app.core.database import engine
 from app.middleware.request_id import RequestIDMiddleware
 
+
+def configure_logging() -> None:
+    """Structured logging: JSON when LOG_FORMAT=json, console otherwise.
+    The request ID middleware binds request_id into every log record."""
+    level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
+    logging.basicConfig(level=level, format="%(message)s")
+    processors: list = [
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso", utc=True),
+    ]
+    if settings.LOG_FORMAT == "json":
+        processors.append(structlog.processors.JSONRenderer())
+    else:
+        processors.append(structlog.dev.ConsoleRenderer())
+    structlog.configure(
+        processors=processors,
+        wrapper_class=structlog.make_filtering_bound_logger(level),
+        logger_factory=structlog.PrintLoggerFactory(),
+        cache_logger_on_first_use=True,
+    )
+
+
+configure_logging()
 logger = structlog.get_logger()
 
 

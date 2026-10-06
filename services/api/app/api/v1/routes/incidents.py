@@ -3,8 +3,9 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -21,11 +22,23 @@ router = APIRouter()
 @router.post("", response_model=IncidentResponse, status_code=status.HTTP_201_CREATED)
 async def create_incident(
     data: IncidentCreate,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create a new incident report (citizen, dispatcher, or admin)."""
+    """Create a new incident report (citizen, dispatcher, or admin).
+
+    Idempotent: clients may supply their own UUID (``data.id``) so that a
+    retry after a network failure replays the same request instead of
+    creating a duplicate. A replayed id returns the original incident
+    with HTTP 200; an id owned by another user is rejected with 409.
+    """
+    incident_id = data.id or uuid.uuid4()
+    # Capture identity values up front: db.rollback() below expires all ORM
+    # objects in the session, so attributes must not be read after it.
+    reporter_id = current_user.id
     incident = Incident(
+        id=incident_id,
         title=data.title,
         description=data.description,
         incident_type=data.incident_type,
@@ -36,12 +49,24 @@ async def create_incident(
         vulnerable_people=data.vulnerable_people,
         injuries_reported=data.injuries_reported,
         medical_need=data.medical_need,
-        reporter_id=current_user.id,
+        reporter_id=reporter_id,
         reporter_name=data.reporter_name or current_user.full_name,
         reporter_phone=data.reporter_phone or current_user.phone,
     )
     db.add(incident)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        # Same client id replayed (offline retry). Return the original record.
+        await db.rollback()
+        existing_reporter_id = (
+            await db.execute(select(Incident.reporter_id).where(Incident.id == incident_id))
+        ).scalar_one_or_none()
+        if existing_reporter_id is None or existing_reporter_id != reporter_id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Incident id already exists")
+        result = await db.execute(select(Incident).where(Incident.id == incident_id))
+        response.status_code = status.HTTP_200_OK
+        return result.scalar_one()
     await log_action(
         db,
         action=AuditAction.CREATE,
@@ -133,10 +158,13 @@ async def run_triage(
 
     triage_result = await run_ai_triage(incident)
     # Validate against schema
+    ensemble_block = triage_result.pop("ensemble", None)
     validated = TriageOutput(**triage_result)
 
-    # Update incident with triage data
+    # Update incident with triage data (including ensemble diagnostics)
     incident.triage_data = validated.model_dump()
+    if ensemble_block:
+        incident.triage_data["ensemble"] = ensemble_block
     incident.triage_confidence = validated.confidence
     incident.triage_reason_codes = validated.reason_codes
     incident.severity = validated.severity
