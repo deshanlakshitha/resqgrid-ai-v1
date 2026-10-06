@@ -112,6 +112,45 @@ body {
   color: #64748b !important;
 }
 
+/* ---- Google Maps dark InfoWindow ---- */
+.gm-style .gm-style-iw-c {
+  background: #0f1626 !important;
+  border: 1px solid #243147 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+  color: #e2e8f0 !important;
+  padding: 2px !important;
+}
+.gm-style .gm-style-iw-d {
+  color: #e2e8f0 !important;
+  overflow: hidden !important;
+  padding: 10px 12px !important;
+}
+.gm-style .gm-style-iw-t::after {
+  background: #0f1626 !important;
+  border-left: 1px solid #243147 !important;
+  border-top: 1px solid #243147 !important;
+}
+.gm-style .gm-style-iw .gm-ui-hover-effect {
+  background: transparent !important;
+}
+.gm-style .gm-style-iw .gm-ui-hover-effect img {
+  filter: invert(0.8);
+}
+
+/* ---- Google Maps dark controls (zoom / fullscreen) ---- */
+.gm-style .gm-bundled-control,
+.gm-style button.gm-fullscreen-control {
+  filter: invert(0.9) hue-rotate(180deg);
+}
+
+/* ---- Google Maps dark attribution ---- */
+.gm-style a,
+.gmnoprint a,
+.gm-style-cc a {
+  color: #64748b !important;
+}
+
 /* ---- Focus visibility ---- */
 button:focus-visible,
 a:focus-visible,

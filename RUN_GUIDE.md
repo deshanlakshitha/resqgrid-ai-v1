@@ -106,6 +106,36 @@ Keep this terminal open. To stop the frontend later, press `Ctrl+C`.
 
 ---
 
+## Enable Real Google Maps (optional, recommended)
+
+The app already shows a **real, detailed map** out of the box — a free OpenFreeMap
+dark basemap (no key, no cost). To upgrade to **real Google Maps** (the map you
+know from google.com — same tiles, same styling engine):
+
+1. Go to https://console.cloud.google.com/apis/credentials (sign in with any Google account)
+2. Click **Create credentials → API key** and copy the key
+3. Enable the API for that key: **APIs & Services → Library → search "Maps JavaScript API" → Enable**
+4. (Free tier is enough — Google gives $200/month of free map loads for testing)
+5. Create the frontend env file and paste the key:
+
+```powershell
+cd "D:\Cursor Projects\ResQGrid AI\apps\web"
+Copy-Item .env.example .env.local
+notepad .env.local
+```
+
+6. Set `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...` (your key), save, and **restart the frontend** (`Ctrl+C`, then `npm run dev` again)
+
+That's it. Both the command-center map and the "Report Incident" location
+picker now use real Google Maps with a dark command-center style. If the key
+is ever missing/rejected, the app automatically falls back to the free
+OpenFreeMap basemap — it never breaks.
+
+> Tip: in the Google Cloud console you can also restrict the key to
+> "Maps JavaScript API" + your website referrers (localhost for dev) for safety.
+
+---
+
 ## Try the Full Workflow (in Swagger UI)
 
 Open http://localhost:8000/docs and follow this order:
@@ -148,6 +178,8 @@ docker compose stop
 | Port 8000 already in use | An old backend is still running: `Get-Process python \| Stop-Process` then retry |
 | Port 3000 already in use | An old frontend is still running: `Get-Process node \| Stop-Process` then retry (careful: closes other node apps too) |
 | Login returns 401 | Check you're using the exact emails/passwords from the table above |
+| Map shows "For development purposes only" / gray map | Google API key problem — the app auto-falls back to the free basemap; check the key has "Maps JavaScript API" enabled and billing account attached |
+| Google map not loading (falls back silently) | Check the key in `apps\web\.env.local` and that you restarted `npm run dev` after editing it |
 | `alembic upgrade head` errors | Database containers not healthy yet — re-check `docker compose ps` |
 | Lost all data / empty incidents list | Re-seed: `cd services\api` then `.venv\Scripts\python.exe -m app.seed` |
 

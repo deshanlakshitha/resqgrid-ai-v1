@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { incidentAPI } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { LocationPickerMap } from './LocationPickerMap';
 
 const INCIDENT_TYPES: { key: string; icon: LucideIcon }[] = [
   { key: 'flood', icon: Waves },
@@ -62,13 +63,19 @@ export function ReportIncidentModal({ onClose, onCreated }: Props) {
   const inputCls =
     'w-full bg-command-bg border border-command-borderhover/60 rounded-xl px-3.5 py-2.5 text-sm placeholder:text-slate-600 focus:outline-none focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20 transition-all';
 
+  // Coordinates for the map picker (fall back to Singapore center while empty)
+  const latNum = parseFloat(latitude);
+  const lngNum = parseFloat(longitude);
+  const pickerLat = Number.isFinite(latNum) ? latNum : 1.3521;
+  const pickerLng = Number.isFinite(lngNum) ? lngNum : 103.8198;
+
   return (
     <div
       className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="bg-command-panel border border-command-borderhover rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-panel animate-slide-up"
+        className="bg-command-panel border border-command-borderhover rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-panel animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -157,13 +164,21 @@ export function ReportIncidentModal({ onClose, onCreated }: Props) {
             />
           </div>
 
-          {/* Location */}
+          {/* Location — pick on the map or type exact coordinates */}
           <div>
             <label className="flex items-center gap-1.5 text-xs font-medium text-slate-400 mb-2">
               <MapPin className="w-3.5 h-3.5" />
-              Location
+              Location <span className="text-red-400">*</span>
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <LocationPickerMap
+              latitude={pickerLat}
+              longitude={pickerLng}
+              onChange={(lat, lng) => {
+                setLatitude(lat.toFixed(6));
+                setLongitude(lng.toFixed(6));
+              }}
+            />
+            <div className="grid grid-cols-2 gap-3 mt-3">
               <div>
                 <span className="block text-[10px] text-slate-600 mb-1">Latitude</span>
                 <input
@@ -188,7 +203,7 @@ export function ReportIncidentModal({ onClose, onCreated }: Props) {
               </div>
             </div>
             <p className="text-[10px] text-slate-600 mt-1.5">
-              Tip: click the map to pick a location after submitting
+              Click the map, drag the pin, or use “My location” — fine-tune the coordinates below if needed.
             </p>
           </div>
 
