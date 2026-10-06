@@ -14,6 +14,8 @@ Run: python -m app.seed
 import asyncio
 from datetime import datetime, timezone, timedelta
 
+from sqlalchemy import select
+
 from app.core.database import async_session_factory
 from app.core.security import hash_password
 from app.models.user import User, UserRole
@@ -109,8 +111,14 @@ DEMO_HAZARDS = [
 
 
 async def seed():
-    """Seed the database with demo data."""
+    """Seed the database with demo data (idempotent)."""
     async with async_session_factory() as db:
+        # Check if demo data already exists to avoid duplicates
+        result = await db.execute(select(User).where(User.email == "admin@resqgrid.local"))
+        if result.scalar_one_or_none():
+            print("Demo data already seeded. Skipping.")
+            return
+
         # Seed users
         print("Seeding users...")
         users = {}
