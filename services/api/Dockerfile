@@ -21,6 +21,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY services/api/ .
 COPY packages/ /packages/
 
+# Ensure the deployment start script is executable
+RUN chmod +x start.sh
+
 # Expose port
 EXPOSE 8000
 

@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: resqgrid-api
+    runtime: docker
+    repo: https://github.com/deshanlakshitha/resqgrid-ai
+    branch: main
+    plan: free
+    region: singapore
+    dockerfilePath: ./services/api/Dockerfile
+    startCommand: ./start.sh
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://web-e4s8vfchd-deshanlakshithas-projects.vercel.app
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        sync: false
+      - key: DASHSCOPE_API_KEY
+        sync: false
+      - key: MODEL_STUDIO_BASE_URL
+        sync: false
+      - key: MODEL_STUDIO_MODEL
+        sync: false

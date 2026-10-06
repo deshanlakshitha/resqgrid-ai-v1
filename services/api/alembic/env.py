@@ -1,6 +1,7 @@
 """Alembic env.py for async SQLAlchemy."""
 
 import asyncio
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -20,8 +21,17 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def get_database_url() -> str:
+    """Read DATABASE_URL from the environment, falling back to alembic.ini."""
+    url = os.environ.get("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
+    # SQLAlchemy async engine needs the asyncpg driver prefix.
+    if url.startswith("postgresql://") and not url.startswith("postgresql+asyncpg://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = get_database_url()
     context.configure(url=url, target_metadata=target_metadata, literal_binds=True)
     with context.begin_transaction():
         context.run_migrations()
@@ -34,8 +44,10 @@ def do_run_migrations(connection):
 
 
 async def run_async_migrations() -> None:
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration["sqlalchemy.url"] = get_database_url()
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

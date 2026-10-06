@@ -1,5 +1,6 @@
 """Application configuration loaded from environment variables."""
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -18,6 +19,17 @@ class Settings(BaseSettings):
 
     # ---- Redis ----
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    @field_validator("DATABASE_URL", mode="after")
+    @classmethod
+    def _ensure_asyncpg(cls, v: str) -> str:
+        """Supabase/Railway/Render often provide postgresql:// URLs.
+
+        SQLAlchemy async requires postgresql+asyncpg://, so convert automatically.
+        """
+        if v.startswith("postgresql://") and not v.startswith("postgresql+asyncpg://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
 
     # ---- JWT ----
     JWT_SECRET: str = "change-me-to-a-secure-random-string"

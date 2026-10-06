@@ -7,9 +7,78 @@
 | Option | Best For | Complexity |
 |--------|----------|------------|
 | Docker Compose (Local) | Development, demos | Low |
+| Supabase + Upstash + Render (Free Cloud) | Hackathon / prototype | Low |
 | Alibaba Cloud Container | Production | Medium |
 | Function Compute + API Gateway | Serverless | Medium |
 | Kubernetes | Large-scale production | High |
+
+## Free Cloud Deployment (Supabase + Upstash + Render)
+
+This is the fastest way to publish a fully working hosted prototype for judges.
+
+### 1. Create the PostgreSQL database on Supabase
+
+1. Go to [https://supabase.com](https://supabase.com) and sign up/log in.
+2. Click **New project**.
+3. Choose a name (e.g. `resqgrid-ai`), set the password, and pick a region close to your users (Singapore is good for Sri Lanka).
+4. Wait for the project to be created.
+5. In the left sidebar, go to **Project Settings → Database**.
+6. Copy the **Connection string** under **URI**. It looks like:
+   ```
+   postgresql://postgres:[password]@db.xxxxx.supabase.co:5432/postgres
+   ```
+7. Go to the **SQL Editor** and run:
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS postgis;
+   ```
+
+### 2. Create Redis on Upstash
+
+1. Go to [https://upstash.com](https://upstash.com) and sign up/log in.
+2. Click **Create Database**.
+3. Name it `resqgrid-redis` and pick a region close to Supabase.
+4. Copy the **Redis URL** (starts with `redis://` or `rediss://`).
+
+### 3. Deploy the backend on Render
+
+1. Push your code to GitHub if you have not already.
+2. Go to [https://render.com](https://render.com) and sign up/log in.
+3. Click **New → Blueprint**.
+4. Connect your GitHub repo (`deshanlakshitha/resqgrid-ai`).
+5. Render will read the `render.yaml` file and create the service.
+6. After the service is created, go to the service **Environment** tab and fill in:
+   - `DATABASE_URL` = the Supabase connection string
+   - `REDIS_URL` = the Upstash Redis URL
+   - `JWT_SECRET` = a long random string (generate at [https://jwtsecret.com](https://jwtsecret.com) or use `openssl rand -hex 32`)
+7. The first deploy will run `alembic upgrade head` automatically and start the API.
+8. After the first deploy succeeds, open **Shell** in the Render dashboard and run:
+   ```bash
+   python -m app.seed
+   ```
+   This creates the demo users, incidents, resources, and hazards.
+
+### 4. Update Vercel environment variable
+
+1. Go to [https://vercel.com/dashboard](https://vercel.com/dashboard).
+2. Open your ResQGrid AI project.
+3. Go to **Settings → Environment Variables**.
+4. Add or update:
+   - `NEXT_PUBLIC_API_URL` = `https://resqgrid-api.onrender.com/api/v1`
+     (replace `resqgrid-api.onrender.com` with your actual Render service URL)
+5. Click **Save**, then go to **Deployments** and click **Redeploy** on the latest deployment.
+
+### 5. Test the hosted prototype
+
+- Open your Vercel URL.
+- Log in with:
+  - **Dispatcher**: `dispatcher@resqgrid.local` / `dispatch123`
+  - **Citizen**: `citizen@resqgrid.local` / `citizen123`
+- You should see the Colombo demo data on the map.
+
+### Optional: Enable real AI
+
+- Add `GEMINI_API_KEY` (Google AI Studio) or `DASHSCOPE_API_KEY` (Alibaba Cloud Model Studio) in Render environment variables.
+- Without a key, the AI assistant still answers from live data using rule-based database queries.
 
 ## Docker Compose (Local/Dev)
 
