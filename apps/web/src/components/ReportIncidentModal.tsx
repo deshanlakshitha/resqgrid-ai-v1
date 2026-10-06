@@ -30,8 +30,8 @@ export function ReportIncidentModal({ onClose, onCreated }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [incidentType, setIncidentType] = useState('fire');
-  const [latitude, setLatitude] = useState('1.3521');
-  const [longitude, setLongitude] = useState('103.8198');
+  const [latitude, setLatitude] = useState('6.9271');
+  const [longitude, setLongitude] = useState('79.8612');
   const [peopleAtRisk, setPeopleAtRisk] = useState('');
   const [medicalNeed, setMedicalNeed] = useState(false);
   const [error, setError] = useState('');
@@ -63,11 +63,11 @@ export function ReportIncidentModal({ onClose, onCreated }: Props) {
   const inputCls =
     'w-full bg-command-bg border border-command-borderhover/60 rounded-xl px-3.5 py-2.5 text-sm placeholder:text-slate-600 focus:outline-none focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20 transition-all';
 
-  // Coordinates for the map picker (fall back to Singapore center while empty)
+  // Coordinates for the map picker (fall back to Colombo, Sri Lanka while empty)
   const latNum = parseFloat(latitude);
   const lngNum = parseFloat(longitude);
-  const pickerLat = Number.isFinite(latNum) ? latNum : 1.3521;
-  const pickerLng = Number.isFinite(lngNum) ? lngNum : 103.8198;
+  const pickerLat = Number.isFinite(latNum) ? latNum : 6.9271;
+  const pickerLng = Number.isFinite(lngNum) ? lngNum : 79.8612;
 
   return (
     <div

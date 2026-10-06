@@ -1,19 +1,17 @@
-"""Seed data: complete disaster simulation for demo purposes.
+"""Seed data: Sri Lanka disaster simulation for demo purposes.
 
-Seeds a fictional city with:
+Seeds Colombo-centered demo data with:
 - 5 demo users (admin, dispatcher, responder, citizen)
 - 20 incidents of various types and severities
 - 30 resources
 - 5 shelters
 - 3 hospitals
-- 5 hazards
-- 3 blocked roads
+- 8 hazards
 
 Run: python -m app.seed
 """
 
 import asyncio
-import uuid
 from datetime import datetime, timezone, timedelta
 
 from app.core.database import async_session_factory
@@ -33,31 +31,31 @@ DEMO_USERS = [
     {"email": "citizen@resqgrid.local", "username": "citizen", "password": "citizen123", "full_name": "Alex Tan", "role": UserRole.CITIZEN, "organization": None},
 ]
 
-# ---- Base coordinates: fictional city centered at (1.35, 103.82) ----
-BASE_LAT, BASE_LNG = 1.3521, 103.8198
+# ---- Base coordinates: Colombo, Sri Lanka ----
+BASE_LAT, BASE_LNG = 6.9271, 79.8612
 
 # ---- 20 Incidents ----
 DEMO_INCIDENTS = [
-    {"title": "Flash flood at Riverside District", "description": "Rapid water rise reported near the river. Multiple families trapped on upper floors.", "type": IncidentType.FLOOD, "severity": IncidentSeverity.CRITICAL, "lat": BASE_LAT + 0.01, "lng": BASE_LNG + 0.02, "people": 25, "vulnerable": 8, "medical": True},
-    {"title": "Building fire at Central Market", "description": "Large commercial building on fire. Thick black smoke visible from 2km away.", "type": IncidentType.FIRE, "severity": IncidentSeverity.CRITICAL, "lat": BASE_LAT - 0.005, "lng": BASE_LNG + 0.01, "people": 40, "vulnerable": 5, "medical": True},
-    {"title": "Landslide on Hill Road", "description": "Part of the hillside collapsed blocking the main road. Vehicles may be trapped.", "type": IncidentType.LANDSLIDE, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT + 0.03, "lng": BASE_LNG - 0.01, "people": 10, "vulnerable": 2, "medical": True},
-    {"title": "Multi-vehicle accident on Highway 5", "description": "5-vehicle pileup reported. At least 3 injuries visible.", "type": IncidentType.ACCIDENT, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT - 0.02, "lng": BASE_LNG + 0.03, "people": 15, "vulnerable": 0, "medical": True},
-    {"title": "Power outage in North District", "description": "Entire neighborhood without power. Nursing home on life support affected.", "type": IncidentType.INFRASTRUCTURE, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT + 0.02, "lng": BASE_LNG + 0.04, "people": 200, "vulnerable": 30, "medical": True},
-    {"title": "Gas leak at Industrial Park", "description": "Strong gas smell near warehouse district. Evacuation may be needed.", "type": IncidentType.HAZMAT, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT - 0.01, "lng": BASE_LNG - 0.02, "people": 50, "vulnerable": 0, "medical": False},
-    {"title": "Person trapped in elevator", "description": "Elevator stuck between floors in apartment complex. Person reports difficulty breathing.", "type": IncidentType.OTHER, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT + 0.005, "lng": BASE_LNG - 0.005, "people": 1, "vulnerable": 1, "medical": True},
-    {"title": "Fallen tree blocking School Road", "description": "Large tree down across the road near the elementary school.", "type": IncidentType.OTHER, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT + 0.015, "lng": BASE_LNG + 0.015, "people": 0, "vulnerable": 0, "medical": False},
-    {"title": "Water main break at Oak Street", "description": "Water gushing from broken main. Street flooding. Water pressure lost for 3 blocks.", "type": IncidentType.INFRASTRUCTURE, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT - 0.008, "lng": BASE_LNG + 0.008, "people": 100, "vulnerable": 10, "medical": False},
-    {"title": "Medical emergency at Senior Center", "description": "Multiple elderly residents feeling unwell. Possible food poisoning.", "type": IncidentType.MEDICAL, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT + 0.008, "lng": BASE_LNG + 0.025, "people": 12, "vulnerable": 12, "medical": True},
-    {"title": "Roof collapse at Warehouse 7", "description": "Partial roof collapse after heavy rain. No injuries reported but structural concerns.", "type": IncidentType.INFRASTRUCTURE, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT - 0.015, "lng": BASE_LNG - 0.015, "people": 5, "vulnerable": 0, "medical": False},
-    {"title": "Car swept into drainage canal", "description": "Vehicle with 2 occupants swept into canal during flash flood.", "type": IncidentType.FLOOD, "severity": IncidentSeverity.CRITICAL, "lat": BASE_LAT + 0.012, "lng": BASE_LNG + 0.018, "people": 2, "vulnerable": 0, "medical": True},
-    {"title": "Kitchen fire at Restaurant Row", "description": "Grease fire spread to adjacent restaurants. All evacuated.", "type": IncidentType.FIRE, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT - 0.003, "lng": BASE_LNG + 0.005, "people": 30, "vulnerable": 0, "medical": False},
-    {"title": "Suspicious package at Transit Hub", "description": "Unattended bag at bus terminal. Area cordoned off.", "type": IncidentType.OTHER, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT + 0.002, "lng": BASE_LNG + 0.012, "people": 50, "vulnerable": 5, "medical": False},
-    {"title": "Child missing near Flood Zone B", "description": "Parent reports child missing near flooded area. Search needed.", "type": IncidentType.FLOOD, "severity": IncidentSeverity.CRITICAL, "lat": BASE_LAT + 0.018, "lng": BASE_LNG + 0.022, "people": 1, "vulnerable": 1, "medical": True},
-    {"title": "Generator failure at City Hospital", "description": "Backup generator failed. ICU patients at risk.", "type": IncidentType.INFRASTRUCTURE, "severity": IncidentSeverity.CRITICAL, "lat": BASE_LAT - 0.01, "lng": BASE_LNG + 0.02, "people": 20, "vulnerable": 20, "medical": True},
-    {"title": "Storm drain overflow at Park Avenue", "description": "Storm drains overwhelmed. Water rising slowly on residential street.", "type": IncidentType.FLOOD, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT + 0.007, "lng": BASE_LNG - 0.008, "people": 30, "vulnerable": 5, "medical": False},
-    {"title": "Chemical spill at University Lab", "description": "Unknown chemical spill in chemistry lab. Building evacuated.", "type": IncidentType.HAZMAT, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT + 0.025, "lng": BASE_LNG + 0.01, "people": 25, "vulnerable": 0, "medical": True},
-    {"title": "Bridge structural damage reported", "description": "Visible cracks on main bridge after earthquake tremor. Inspection needed.", "type": IncidentType.INFRASTRUCTURE, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT - 0.005, "lng": BASE_LNG + 0.035, "people": 0, "vulnerable": 0, "medical": False},
-    {"title": "Earthquake aftershock damage", "description": "Multiple reports of wall cracks and fallen debris after 4.5 magnitude aftershock.", "type": IncidentType.EARTHQUAKE, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT + 0.01, "lng": BASE_LNG + 0.01, "people": 50, "vulnerable": 15, "medical": True},
+    {"title": "Flash flood at Bambalapitiya", "description": "Rapid water rise reported near the canal. Multiple families trapped on upper floors.", "type": IncidentType.FLOOD, "severity": IncidentSeverity.CRITICAL, "lat": BASE_LAT + 0.01, "lng": BASE_LNG + 0.02, "people": 25, "vulnerable": 8, "medical": True},
+    {"title": "Building fire at Pettah Market", "description": "Large commercial building on fire. Thick black smoke visible from 2km away.", "type": IncidentType.FIRE, "severity": IncidentSeverity.CRITICAL, "lat": BASE_LAT - 0.005, "lng": BASE_LNG + 0.01, "people": 40, "vulnerable": 5, "medical": True},
+    {"title": "Landslide on Kandy Road", "description": "Part of the hillside collapsed blocking the main road. Vehicles may be trapped.", "type": IncidentType.LANDSLIDE, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT + 0.03, "lng": BASE_LNG - 0.01, "people": 10, "vulnerable": 2, "medical": True},
+    {"title": "Multi-vehicle accident on Galle Road", "description": "5-vehicle pileup reported near Galle Face. At least 3 injuries visible.", "type": IncidentType.ACCIDENT, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT - 0.02, "lng": BASE_LNG + 0.03, "people": 15, "vulnerable": 0, "medical": True},
+    {"title": "Power outage in Colombo North", "description": "Entire neighborhood without power. Nursing home on life support affected.", "type": IncidentType.INFRASTRUCTURE, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT + 0.02, "lng": BASE_LNG + 0.04, "people": 200, "vulnerable": 30, "medical": True},
+    {"title": "Gas leak at Colombo Port", "description": "Strong gas smell near warehouse district. Evacuation may be needed.", "type": IncidentType.HAZMAT, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT - 0.01, "lng": BASE_LNG - 0.02, "people": 50, "vulnerable": 0, "medical": False},
+    {"title": "Person trapped in elevator", "description": "Elevator stuck between floors in apartment complex near Havelock City. Person reports difficulty breathing.", "type": IncidentType.OTHER, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT + 0.005, "lng": BASE_LNG - 0.005, "people": 1, "vulnerable": 1, "medical": True},
+    {"title": "Fallen tree blocking Duplication Road", "description": "Large tree down across the road near the school in Bambalapitiya.", "type": IncidentType.OTHER, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT + 0.015, "lng": BASE_LNG + 0.015, "people": 0, "vulnerable": 0, "medical": False},
+    {"title": "Water main break at Baseline Road", "description": "Water gushing from broken main. Street flooding. Water pressure lost for 3 blocks.", "type": IncidentType.INFRASTRUCTURE, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT - 0.008, "lng": BASE_LNG + 0.008, "people": 100, "vulnerable": 10, "medical": False},
+    {"title": "Medical emergency at Dehiwala Senior Center", "description": "Multiple elderly residents feeling unwell. Possible food poisoning.", "type": IncidentType.MEDICAL, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT + 0.008, "lng": BASE_LNG + 0.025, "people": 12, "vulnerable": 12, "medical": True},
+    {"title": "Roof collapse at Colombo Warehouse", "description": "Partial roof collapse after heavy rain. No injuries reported but structural concerns.", "type": IncidentType.INFRASTRUCTURE, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT - 0.015, "lng": BASE_LNG - 0.015, "people": 5, "vulnerable": 0, "medical": False},
+    {"title": "Car swept into Wellawatte canal", "description": "Vehicle with 2 occupants swept into canal during flash flood.", "type": IncidentType.FLOOD, "severity": IncidentSeverity.CRITICAL, "lat": BASE_LAT + 0.012, "lng": BASE_LNG + 0.018, "people": 2, "vulnerable": 0, "medical": True},
+    {"title": "Kitchen fire at Galle Face restaurants", "description": "Grease fire spread to adjacent restaurants. All evacuated.", "type": IncidentType.FIRE, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT - 0.003, "lng": BASE_LNG + 0.005, "people": 30, "vulnerable": 0, "medical": False},
+    {"title": "Suspicious package at Fort Railway Station", "description": "Unattended bag at bus and rail terminal. Area cordoned off.", "type": IncidentType.OTHER, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT + 0.002, "lng": BASE_LNG + 0.012, "people": 50, "vulnerable": 5, "medical": False},
+    {"title": "Child missing near Bambalapitiya flood zone", "description": "Parent reports child missing near flooded area. Search needed.", "type": IncidentType.FLOOD, "severity": IncidentSeverity.CRITICAL, "lat": BASE_LAT + 0.018, "lng": BASE_LNG + 0.022, "people": 1, "vulnerable": 1, "medical": True},
+    {"title": "Generator failure at National Hospital", "description": "Backup generator failed. ICU patients at risk.", "type": IncidentType.INFRASTRUCTURE, "severity": IncidentSeverity.CRITICAL, "lat": BASE_LAT - 0.01, "lng": BASE_LNG + 0.02, "people": 20, "vulnerable": 20, "medical": True},
+    {"title": "Storm drain overflow at Slave Island", "description": "Storm drains overwhelmed. Water rising slowly on residential street.", "type": IncidentType.FLOOD, "severity": IncidentSeverity.MEDIUM, "lat": BASE_LAT + 0.007, "lng": BASE_LNG - 0.008, "people": 30, "vulnerable": 5, "medical": False},
+    {"title": "Chemical spill at University of Colombo Lab", "description": "Unknown chemical spill in chemistry lab. Building evacuated.", "type": IncidentType.HAZMAT, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT + 0.025, "lng": BASE_LNG + 0.01, "people": 25, "vulnerable": 0, "medical": True},
+    {"title": "Bridge structural damage reported", "description": "Visible cracks on Kelani Bridge after earthquake tremor. Inspection needed.", "type": IncidentType.INFRASTRUCTURE, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT - 0.005, "lng": BASE_LNG + 0.035, "people": 0, "vulnerable": 0, "medical": False},
+    {"title": "Earthquake aftershock damage", "description": "Multiple reports of wall cracks and fallen debris after 4.5 magnitude aftershock in Kotte.", "type": IncidentType.EARTHQUAKE, "severity": IncidentSeverity.HIGH, "lat": BASE_LAT + 0.01, "lng": BASE_LNG + 0.01, "people": 50, "vulnerable": 15, "medical": True},
 ]
 
 # ---- 30 Resources ----
@@ -84,29 +82,29 @@ DEMO_RESOURCES = [
     {"name": "Drone D-01", "type": ResourceType.DRONE, "lat": BASE_LAT, "lng": BASE_LNG, "capacity": 0, "caps": ["surveillance", "damage_assessment", "thermal_imaging"]},
     {"name": "Drone D-02", "type": ResourceType.DRONE, "lat": BASE_LAT + 0.01, "lng": BASE_LNG + 0.01, "capacity": 0, "caps": ["surveillance", "delivery_small_items"]},
     # 5 Shelters
-    {"name": "Community Center Shelter", "type": ResourceType.SHELTER, "lat": BASE_LAT + 0.02, "lng": BASE_LNG - 0.01, "capacity": 200, "caps": ["shelter", "food", "first_aid"]},
-    {"name": "School Gymnasium Shelter", "type": ResourceType.SHELTER, "lat": BASE_LAT - 0.015, "lng": BASE_LNG + 0.03, "capacity": 150, "caps": ["shelter", "food"]},
-    {"name": "Sports Complex Shelter", "type": ResourceType.SHELTER, "lat": BASE_LAT + 0.025, "lng": BASE_LNG + 0.03, "capacity": 500, "caps": ["shelter", "food", "medical", "parking"]},
-    {"name": "Church Hall Shelter", "type": ResourceType.SHELTER, "lat": BASE_LAT - 0.02, "lng": BASE_LNG - 0.01, "capacity": 80, "caps": ["shelter", "food"]},
-    {"name": "Convention Center Shelter", "type": ResourceType.SHELTER, "lat": BASE_LAT + 0.005, "lng": BASE_LNG + 0.04, "capacity": 1000, "caps": ["shelter", "food", "medical", "communications"]},
+    {"name": "Viharamahadevi Park Shelter", "type": ResourceType.SHELTER, "lat": BASE_LAT + 0.02, "lng": BASE_LNG - 0.01, "capacity": 200, "caps": ["shelter", "food", "first_aid"]},
+    {"name": "Royal College Gymnasium Shelter", "type": ResourceType.SHELTER, "lat": BASE_LAT - 0.015, "lng": BASE_LNG + 0.03, "capacity": 150, "caps": ["shelter", "food"]},
+    {"name": "Sugathadasa Stadium Shelter", "type": ResourceType.SHELTER, "lat": BASE_LAT + 0.025, "lng": BASE_LNG + 0.03, "capacity": 500, "caps": ["shelter", "food", "medical", "parking"]},
+    {"name": "St. Joseph's Church Hall Shelter", "type": ResourceType.SHELTER, "lat": BASE_LAT - 0.02, "lng": BASE_LNG - 0.01, "capacity": 80, "caps": ["shelter", "food"]},
+    {"name": "Bandaranaike Memorial Hall Shelter", "type": ResourceType.SHELTER, "lat": BASE_LAT + 0.005, "lng": BASE_LNG + 0.04, "capacity": 1000, "caps": ["shelter", "food", "medical", "communications"]},
     # 3 Hospitals
-    {"name": "City General Hospital", "type": ResourceType.SHELTER, "lat": BASE_LAT - 0.01, "lng": BASE_LNG + 0.02, "capacity": 300, "caps": ["emergency", "surgery", "ICU", "trauma"]},
-    {"name": "St. Mary Medical Center", "type": ResourceType.SHELTER, "lat": BASE_LAT + 0.02, "lng": BASE_LNG + 0.035, "capacity": 200, "caps": ["emergency", "pediatric", "maternity"]},
-    {"name": "Regional Trauma Center", "type": ResourceType.SHELTER, "lat": BASE_LAT - 0.025, "lng": BASE_LNG + 0.015, "capacity": 150, "caps": ["trauma", "surgery", "burn_unit", "ICU"]},
+    {"name": "National Hospital of Sri Lanka", "type": ResourceType.SHELTER, "lat": BASE_LAT - 0.01, "lng": BASE_LNG + 0.02, "capacity": 300, "caps": ["emergency", "surgery", "ICU", "trauma"]},
+    {"name": "Lady Ridgeway Hospital", "type": ResourceType.SHELTER, "lat": BASE_LAT + 0.02, "lng": BASE_LNG + 0.035, "capacity": 200, "caps": ["emergency", "pediatric", "maternity"]},
+    {"name": "Castle Street Hospital for Women", "type": ResourceType.SHELTER, "lat": BASE_LAT - 0.025, "lng": BASE_LNG + 0.015, "capacity": 150, "caps": ["trauma", "surgery", "burn_unit", "ICU"]},
     # Additional resources
     {"name": "Ambulance A-04", "type": ResourceType.AMBULANCE, "lat": BASE_LAT + 0.018, "lng": BASE_LNG - 0.008, "capacity": 2, "caps": ["BLS", "ALS"]},
 ]
 
 # ---- Hazards & Blocked Roads ----
 DEMO_HAZARDS = [
-    {"type": HazardType.FLOOD, "title": "Flash Flood Zone — Riverside", "lat": BASE_LAT + 0.012, "lng": BASE_LNG + 0.02, "radius": 500, "severity": "critical"},
-    {"type": HazardType.FIRE, "title": "Active Fire Zone — Central Market", "lat": BASE_LAT - 0.005, "lng": BASE_LNG + 0.01, "radius": 200, "severity": "high"},
-    {"type": HazardType.ROAD_BLOCKED, "title": "Landslide Blockage — Hill Road", "lat": BASE_LAT + 0.03, "lng": BASE_LNG - 0.01, "radius": 100, "severity": "high"},
-    {"type": HazardType.ROAD_BLOCKED, "title": "Fallen Tree — School Road", "lat": BASE_LAT + 0.015, "lng": BASE_LNG + 0.015, "radius": 50, "severity": "medium"},
-    {"type": HazardType.ROAD_BLOCKED, "title": "Flooded Underpass — Highway 5", "lat": BASE_LAT - 0.018, "lng": BASE_LNG + 0.028, "radius": 150, "severity": "high"},
-    {"type": HazardType.CHEMICAL_SPILL, "title": "Hazmat Zone — Industrial Park", "lat": BASE_LAT - 0.01, "lng": BASE_LNG - 0.02, "radius": 300, "severity": "high"},
-    {"type": HazardType.STRUCTURAL_COLLAPSE, "title": "Bridge Damage — Main Bridge", "lat": BASE_LAT - 0.005, "lng": BASE_LNG + 0.035, "radius": 200, "severity": "high"},
-    {"type": HazardType.POWER_OUTAGE, "title": "Power Outage — North District", "lat": BASE_LAT + 0.02, "lng": BASE_LNG + 0.04, "radius": 1000, "severity": "medium"},
+    {"type": HazardType.FLOOD, "title": "Flash Flood Zone — Bambalapitiya", "lat": BASE_LAT + 0.012, "lng": BASE_LNG + 0.02, "radius": 500, "severity": "critical"},
+    {"type": HazardType.FIRE, "title": "Active Fire Zone — Pettah Market", "lat": BASE_LAT - 0.005, "lng": BASE_LNG + 0.01, "radius": 200, "severity": "high"},
+    {"type": HazardType.ROAD_BLOCKED, "title": "Landslide Blockage — Kandy Road", "lat": BASE_LAT + 0.03, "lng": BASE_LNG - 0.01, "radius": 100, "severity": "high"},
+    {"type": HazardType.ROAD_BLOCKED, "title": "Fallen Tree — Duplication Road", "lat": BASE_LAT + 0.015, "lng": BASE_LNG + 0.015, "radius": 50, "severity": "medium"},
+    {"type": HazardType.ROAD_BLOCKED, "title": "Flooded Underpass — Galle Road", "lat": BASE_LAT - 0.018, "lng": BASE_LNG + 0.028, "radius": 150, "severity": "high"},
+    {"type": HazardType.CHEMICAL_SPILL, "title": "Hazmat Zone — Colombo Port", "lat": BASE_LAT - 0.01, "lng": BASE_LNG - 0.02, "radius": 300, "severity": "high"},
+    {"type": HazardType.STRUCTURAL_COLLAPSE, "title": "Bridge Damage — Kelani Bridge", "lat": BASE_LAT - 0.005, "lng": BASE_LNG + 0.035, "radius": 200, "severity": "high"},
+    {"type": HazardType.POWER_OUTAGE, "title": "Power Outage — Colombo North", "lat": BASE_LAT + 0.02, "lng": BASE_LNG + 0.04, "radius": 1000, "severity": "medium"},
 ]
 
 
@@ -150,7 +148,7 @@ async def seed():
                 status=ResourceStatus.AVAILABLE,
                 latitude=r["lat"], longitude=r["lng"],
                 capacity=r.get("capacity"), capabilities=r.get("caps"),
-                organization="ResQGrid Emergency Services",
+                organization="ResQGrid Sri Lanka Emergency Services",
             )
             db.add(resource)
 

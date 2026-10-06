@@ -36,5 +36,5 @@ export const PRIORITY_WEIGHTS = {
 } as const;
 
 export const API_VERSION = 'v1';
-export const DEFAULT_MAP_CENTER = { latitude: 1.3521, longitude: 103.8198 };
+export const DEFAULT_MAP_CENTER = { latitude: 6.9271, longitude: 79.8612 };
 export const DEFAULT_MAP_ZOOM = 12;

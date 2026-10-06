@@ -20,7 +20,7 @@ export const RESOURCE_COLORS: Record<string, string> = {
 
 export const HAZARD_COLOR = '#f97316';
 
-export const DEFAULT_CENTER = { lat: 1.3521, lng: 103.8198 };
+export const DEFAULT_CENTER = { lat: 6.9271, lng: 79.8612 };
 export const DEFAULT_ZOOM = 11.5;
 
 /** Free, keyless, Google-Maps-style basemap used when no Google key is set. */
