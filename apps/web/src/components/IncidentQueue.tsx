@@ -1,48 +1,48 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { incidentAPI } from '@/lib/api';
+import { useMemo, useState } from 'react';
+import type { Incident } from '@/lib/api';
 import { severityColor, formatDate } from '@/lib/utils';
 
-interface Incident {
-  id: string;
-  title: string;
-  severity: string;
-  status: string;
-  incident_type: string;
-  priority_score: number | null;
-  created_at: string;
-}
-
 interface Props {
+  incidents: Incident[];
   selectedId: string | null;
   onSelect: (id: string) => void;
 }
 
-export function IncidentQueue({ selectedId, onSelect }: Props) {
-  const [incidents, setIncidents] = useState<Incident[]>([]);
+const FILTERS = ['all', 'critical', 'high', 'medium', 'low'] as const;
 
-  useEffect(() => {
-    const fetchIncidents = async () => {
-      try {
-        const { data } = await incidentAPI.list();
-        setIncidents(data);
-      } catch {
-        // API not available
-      }
-    };
-    fetchIncidents();
-    const interval = setInterval(fetchIncidents, 15000);
-    return () => clearInterval(interval);
-  }, []);
+export function IncidentQueue({ incidents, selectedId, onSelect }: Props) {
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>('all');
 
-  const sorted = [...incidents].sort((a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0));
+  const sorted = useMemo(() => {
+    const filtered = filter === 'all' ? incidents : incidents.filter((i) => i.severity === filter);
+    return [...filtered].sort((a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0));
+  }, [incidents, filter]);
 
   return (
-    <div className="p-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-3">
+    <div className="p-3">
+      <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-2">
         Incident Queue ({incidents.length})
       </h2>
+
+      {/* Severity filter */}
+      <div className="flex gap-1 mb-3">
+        {FILTERS.map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-2 py-1 rounded text-xs capitalize transition-colors ${
+              filter === f
+                ? 'bg-command-accent text-white font-medium'
+                : 'bg-command-bg text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+
       <div className="space-y-2">
         {sorted.map((incident) => (
           <button
@@ -66,14 +66,16 @@ export function IncidentQueue({ selectedId, onSelect }: Props) {
             <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
               <span>{incident.incident_type}</span>
               <span>·</span>
-              <span>{incident.status}</span>
+              <span className="capitalize">{incident.status.replace('_', ' ')}</span>
               <span>·</span>
               <span>{formatDate(incident.created_at)}</span>
             </div>
           </button>
         ))}
-        {incidents.length === 0 && (
-          <p className="text-sm text-gray-500 text-center py-8">No incidents reported</p>
+        {sorted.length === 0 && (
+          <p className="text-sm text-gray-500 text-center py-8">
+            {incidents.length === 0 ? 'No incidents reported' : 'No incidents at this severity'}
+          </p>
         )}
       </div>
     </div>

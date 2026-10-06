@@ -17,7 +17,7 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 responses
+// Handle 401 responses: clear session and reload (auth context will show login)
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -25,7 +25,10 @@ apiClient.interceptors.response.use(
       if (typeof window !== 'undefined') {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
-        window.location.href = '/login';
+        // Only hard-reload if we are not already on the login page
+        if (!window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);
@@ -55,6 +58,57 @@ export const incidentAPI = {
   runTriage: (id: string) => apiClient.post(`/incidents/${id}/triage`),
   calculatePriority: (id: string) => apiClient.post(`/incidents/${id}/priority`),
   getRecommendations: (id: string) => apiClient.post(`/incidents/${id}/recommendations`),
+};
+
+export interface Incident {
+  id: string;
+  title: string;
+  description: string;
+  incident_type: string;
+  severity: string;
+  status: string;
+  latitude: number;
+  longitude: number;
+  address?: string | null;
+  people_at_risk?: number | null;
+  vulnerable_people?: number | null;
+  injuries_reported?: number | null;
+  medical_need: boolean;
+  triage_data?: Record<string, unknown> | null;
+  triage_confidence?: number | null;
+  priority_score?: number | null;
+  priority_components?: Record<string, number> | null;
+  immediate_needs?: string[] | null;
+  reporter_name?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Resource {
+  id: string;
+  name: string;
+  resource_type: string;
+  status: string;
+  latitude: number;
+  longitude: number;
+  base_address?: string | null;
+  capacity?: number | null;
+  capabilities?: string[] | null;
+  organization?: string | null;
+  max_range_km?: number | null;
+}
+
+export interface Recommendation {
+  id: string;
+  incident_id: string;
+  resource_id: string;
+  status: string;
+  confidence: number;
+  estimated_eta_minutes?: number | null;
+  compatibility_reasons?: string[] | null;
+  reasoning?: string | null;
+  human_approval_required: boolean;
+  created_at: string;
 };
 
 export const resourceAPI = {
