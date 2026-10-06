@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, X, Bot, User, Loader2 } from 'lucide-react';
+import { MessageSquare, Send, X, Bot, User, Loader2, Lightbulb } from 'lucide-react';
 import { assistantAPI } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -16,6 +16,9 @@ const SUGGESTIONS = [
   'Which rescue resources are available near Colombo?',
   'Summarize active hazards and blocked routes',
   'How many incidents need human approval?',
+  'What is the current situation summary?',
+  'Which incidents are near the Colombo hospital area?',
+  'List available ambulances and medical teams',
 ];
 
 export function AssistantChat() {
@@ -69,9 +72,9 @@ export function AssistantChat() {
   return (
     <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end">
       {isOpen && (
-        <div className="mb-3 w-80 sm:w-96 rounded-2xl border border-command-border bg-command-panel/95 backdrop-blur-md shadow-2xl overflow-hidden animate-fade-in">
+        <div className="mb-3 w-80 sm:w-96 rounded-2xl border border-command-border bg-command-panel/95 backdrop-blur-md shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[80vh]">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-command-border bg-command-bg/60">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-command-border bg-command-bg/60 shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-500 flex items-center justify-center">
                 <Bot className="w-4 h-4 text-white" />
@@ -90,7 +93,7 @@ export function AssistantChat() {
           </div>
 
           {/* Messages */}
-          <div ref={scrollRef} className="h-80 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+          <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3 custom-scrollbar">
             {messages.map((msg, idx) => (
               <div
                 key={idx}
@@ -109,7 +112,7 @@ export function AssistantChat() {
                 </div>
                 <div
                   className={cn(
-                    'max-w-[80%] rounded-xl px-3 py-2 text-xs leading-relaxed',
+                    'max-w-[80%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-line',
                     msg.role === 'user'
                       ? 'bg-blue-600/20 text-blue-100 border border-blue-500/25'
                       : 'bg-command-raised text-slate-300 border border-command-border'
@@ -134,7 +137,7 @@ export function AssistantChat() {
             {messages.length <= 1 && !loading && (
               <div className="space-y-1.5 pt-1">
                 <p className="text-[10px] text-slate-500 uppercase tracking-wider">Suggested questions</p>
-                {SUGGESTIONS.map((s) => (
+                {SUGGESTIONS.slice(0, 5).map((s) => (
                   <button
                     key={s}
                     onClick={() => sendMessage(s)}
@@ -147,13 +150,34 @@ export function AssistantChat() {
             )}
           </div>
 
+          {/* Persistent suggested questions chips */}
+          <div className="px-3 pt-2 pb-1 border-t border-command-border/50 bg-command-bg/40 shrink-0">
+            <div className="flex items-center gap-1 mb-1.5">
+              <Lightbulb className="w-3 h-3 text-amber-400" />
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider">Quick questions</span>
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => sendMessage(s)}
+                  disabled={loading}
+                  className="shrink-0 text-left text-[10px] text-slate-300 bg-command-raised hover:bg-slate-700 border border-command-borderhover/60 hover:border-slate-500 rounded-full px-2.5 py-1 transition-colors disabled:opacity-50"
+                  title={s}
+                >
+                  {s.length > 28 ? `${s.slice(0, 28)}…` : s}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Input */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               sendMessage(input);
             }}
-            className="p-3 border-t border-command-border bg-command-bg/60"
+            className="p-3 border-t border-command-border bg-command-bg/60 shrink-0"
           >
             <div className="flex items-center gap-2">
               <input
