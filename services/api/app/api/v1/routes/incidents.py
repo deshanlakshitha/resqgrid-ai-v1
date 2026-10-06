@@ -9,7 +9,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_role
+from app.core.deps import get_current_user, require_role, incident_scope, require_incident_access
+from app.core.rate_limit import enforce_rate_limit
 from app.models.user import User, UserRole
 from app.models.incident import Incident
 from app.models.entities import AuditAction
@@ -33,6 +34,7 @@ async def create_incident(
     creating a duplicate. A replayed id returns the original incident
     with HTTP 200; an id owned by another user is rejected with 409.
     """
+    await enforce_rate_limit("incident-create", str(current_user.id), 30, 60)
     incident_id = data.id or uuid.uuid4()
     # Capture identity values up front: db.rollback() below expires all ORM
     # objects in the session, so attributes must not be read after it.
@@ -90,7 +92,7 @@ async def list_incidents(
     current_user: User = Depends(get_current_user),
 ):
     """List incidents with optional filtering and pagination."""
-    query = select(Incident).where(Incident.is_deleted == False)
+    query = select(Incident).where(Incident.is_deleted == False, incident_scope(current_user))
 
     if status_filter:
         query = query.where(Incident.status == status_filter)
@@ -113,11 +115,7 @@ async def get_incident(
     current_user: User = Depends(get_current_user),
 ):
     """Get a single incident by ID."""
-    result = await db.execute(select(Incident).where(Incident.id == incident_id, Incident.is_deleted == False))
-    incident = result.scalar_one_or_none()
-    if not incident:
-        raise HTTPException(status_code=404, detail="Incident not found")
-    return incident
+    return await require_incident_access(db, incident_id, current_user)
 
 
 @router.patch("/{incident_id}", response_model=IncidentResponse)

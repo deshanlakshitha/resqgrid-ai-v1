@@ -41,7 +41,7 @@ export function MapLibreCommandMap({
     let cancelled = false;
 
     const initMap = async () => {
-      const maplibregl = (await import('maplibre-gl')).default;
+      const maplibregl = await import('maplibre-gl');
       if (cancelled || !containerRef.current) return;
       maplibreRef.current = maplibregl;
 

@@ -2,9 +2,9 @@
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 # ============================================================================
@@ -17,13 +17,24 @@ class UserRegister(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     full_name: str = Field(..., max_length=200)
     phone: Optional[str] = Field(None, max_length=20)
-    role: str = Field("citizen", pattern="^(citizen|responder|dispatcher|admin)$")
+    role: Literal["citizen"] = "citizen"
     organization: Optional[str] = Field(None, max_length=200)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_bytes(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be at most 72 UTF-8 bytes")
+        return value
 
 
 class UserLogin(BaseModel):
-    email: str
-    password: str
+    email: str = Field(..., max_length=255)
+    password: str = Field(..., max_length=128)
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=1, max_length=4096)
 
 
 class TokenResponse(BaseModel):
@@ -216,9 +227,16 @@ class AssignmentResponse(BaseModel):
     created_at: datetime
 
 
+class AssignmentCreate(BaseModel):
+    incident_id: uuid.UUID
+    resource_id: uuid.UUID
+    responder_id: Optional[uuid.UUID] = None
+    recommendation_id: Optional[uuid.UUID] = None
+
+
 class AssignmentUpdate(BaseModel):
-    status: str
-    notes: Optional[str] = None
+    status: Literal["assigned", "accepted", "en_route", "on_scene", "completed", "cancelled"]
+    notes: Optional[str] = Field(None, max_length=5000)
 
 
 class AssignmentPair(BaseModel):

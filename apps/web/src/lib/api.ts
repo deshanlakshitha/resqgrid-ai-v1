@@ -159,6 +159,8 @@ export interface Evidence {
 }
 
 export const evidenceAPI = {
+  download: (evidenceId: string, signal?: AbortSignal) =>
+    apiClient.get<Blob>(`/evidence/${evidenceId}/content`, { responseType: 'blob', signal }),
   listForIncident: (incidentId: string) =>
     apiClient.get(`/evidence/incident/${incidentId}`),
   upload: (incidentId: string, file: File, analyze: boolean = true) => {

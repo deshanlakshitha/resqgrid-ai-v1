@@ -11,12 +11,13 @@ import logging
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_v1_router
 from app.core.config import settings
 from app.core.database import engine
 from app.middleware.request_id import RequestIDMiddleware
+from app.middleware.security import SecurityMiddleware, SECURITY_HEADERS
 
 
 def configure_logging() -> None:
@@ -53,8 +54,8 @@ async def lifespan(app: FastAPI):
     try:
         async with engine.begin() as conn:
             logger.info("Database connection verified")
-    except Exception as e:
-        logger.error("Database connection failed", error=str(e))
+    except Exception:
+        logger.error("Database connection failed")
     yield
     await engine.dispose()
     logger.info("ResQGrid AI shutting down")
@@ -71,20 +72,23 @@ app = FastAPI(
 
 # ---- Middleware ----
 app.add_middleware(RequestIDMiddleware)
+app.add_middleware(SecurityMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS.split(","),
+    allow_origins=[origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---- Static uploads (evidence images) ----
-import os
-_uploads_dir = os.path.join(os.path.dirname(__file__), "..", "uploads")
-if os.path.exists(_uploads_dir):
-    app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
+@app.exception_handler(Exception)
+async def unexpected_error(request, exc):
+    logger.error("Unhandled API error", error_type=type(exc).__name__)
+    return JSONResponse(
+        status_code=500, content={"detail": "An internal error occurred"},
+        headers={**SECURITY_HEADERS, "Cache-Control": "no-store"},
+    )
 
 # ---- Routes ----
 app.include_router(api_v1_router, prefix="/api/v1")

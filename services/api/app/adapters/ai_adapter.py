@@ -178,7 +178,8 @@ class GeminiAIAdapter(AIAdapter):
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
-                f"{self.base_url}:generateContent?key={self.api_key}",
+                f"{self.base_url}:generateContent",
+                headers={"x-goog-api-key": self.api_key},
                 json=payload,
             )
             response.raise_for_status()
@@ -198,11 +199,16 @@ class GeminiAIAdapter(AIAdapter):
         """Analyze an image using Gemini multimodal."""
         # Fetch image and encode as base64 for Gemini
         import base64
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            img_response = await client.get(image_url)
-            img_response.raise_for_status()
-            image_data = base64.b64encode(img_response.content).decode("utf-8")
-            mime_type = img_response.headers.get("content-type", "image/jpeg").split(";")[0]
+        if image_url.startswith("data:"):
+            header, image_data = image_url.split(",", 1)
+            mime_type = header.removeprefix("data:").removesuffix(";base64")
+            if not header.endswith(";base64") or mime_type not in {"image/jpeg", "image/png", "image/webp", "image/gif"}:
+                raise ValueError("Unsupported image format")
+            if len(image_data) > (settings.MAX_UPLOAD_BYTES + 2) // 3 * 4:
+                raise ValueError("Image exceeds the size limit")
+            base64.b64decode(image_data, validate=True)
+        else:
+            raise ValueError("Vision requires image bytes loaded from authorized evidence storage")
 
         payload: dict = {
             "contents": [{
@@ -222,7 +228,8 @@ class GeminiAIAdapter(AIAdapter):
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
-                f"{self.base_url}:generateContent?key={self.api_key}",
+                f"{self.base_url}:generateContent",
+                headers={"x-goog-api-key": self.api_key},
                 json=payload,
             )
             response.raise_for_status()

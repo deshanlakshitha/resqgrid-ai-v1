@@ -2,7 +2,8 @@
 
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 from passlib.context import CryptContext
 
 from app.core.config import settings
@@ -17,7 +18,12 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plaintext password against a hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    if len(plain_password.encode("utf-8")) > 72:
+        return False
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except ValueError:
+        return False
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
@@ -41,7 +47,12 @@ def create_refresh_token(data: dict) -> str:
 def decode_token(token: str) -> dict | None:
     """Decode and validate a JWT token. Returns payload or None."""
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        if not isinstance(token, str) or len(token) > 4096:
+            return None
+        payload = jwt.decode(
+            token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM],
+            options={"require": ["exp", "sub"]},
+        )
         return payload
-    except JWTError:
+    except (InvalidTokenError, ValueError, TypeError):
         return None

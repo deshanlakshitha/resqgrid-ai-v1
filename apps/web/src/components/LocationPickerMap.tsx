@@ -295,7 +295,7 @@ function MapLibrePicker({ latitude, longitude, onChange }: Props) {
     let cancelled = false;
 
     const init = async () => {
-      const maplibregl = (await import('maplibre-gl')).default;
+      const maplibregl = await import('maplibre-gl');
       if (cancelled || !containerRef.current) return;
 
       const map = new maplibregl.Map({

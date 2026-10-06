@@ -1,4 +1,4 @@
-const CACHE_NAME = 'resqgrid-ai-v1';
+const CACHE_NAME = 'resqgrid-ai-v2-security';
 const SHELL_ASSETS = [
   '/',
   '/login',
@@ -24,9 +24,24 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests and API calls
-  if (event.request.method !== 'GET' || event.request.url.includes('/api/')) {
+  const url = new URL(event.request.url);
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin ||
+      url.pathname.startsWith('/api/') || url.pathname.startsWith('/uploads/') ||
+      event.request.headers.has('Authorization')) {
     return;
   }
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(fetch(event.request).then((response) => {
+      if (response.ok) {
+        const copy = response.clone();
+        event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)));
+      }
+      return response;
+    }).catch(async () => (await caches.match(event.request)) || Response.error()));
+    return;
+  }
+  if (!url.pathname.startsWith('/_next/static/') && !SHELL_ASSETS.includes(url.pathname)) return;
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
@@ -34,11 +49,13 @@ self.addEventListener('fetch', (event) => {
         cached ||
         fetch(event.request)
           .then((response) => {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            if (response.ok && response.type === 'basic') {
+              const clone = response.clone();
+              event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)));
+            }
             return response;
           })
-          .catch(() => cached)
+          .catch(() => cached || Response.error())
       );
     })
   );

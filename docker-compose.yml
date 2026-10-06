@@ -20,7 +20,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-resqgrid_dev_password}
       POSTGRES_DB: ${POSTGRES_DB:-resqgrid_ai}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d
@@ -36,7 +36,7 @@ services:
     container_name: resqgrid-redis
     restart: unless-stopped
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -55,7 +55,7 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-resqgrid}:${POSTGRES_PASSWORD:-resqgrid_dev_password}@postgres:5432/${POSTGRES_DB:-resqgrid_ai}
       - REDIS_URL=redis://redis:6379/0
-      - JWT_SECRET=${JWT_SECRET:-change-me-to-a-secure-random-string}
+      - JWT_SECRET=${JWT_SECRET:-}
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
       - MODEL_STUDIO_BASE_URL=${MODEL_STUDIO_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
       - MODEL_STUDIO_MODEL=${MODEL_STUDIO_MODEL:-qwen-plus}

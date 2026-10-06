@@ -18,6 +18,7 @@ import {
   type Assignment,
 } from '@/lib/api';
 import { cn, severityColor, formatDate, priorityLabel } from '@/lib/utils';
+import { useAuth } from '@/lib/auth';
 
 interface Props {
   incident: Incident | null;
@@ -135,7 +136,36 @@ function Meta({ icon: Icon, label, value, valueClass }: {
   );
 }
 
+function EvidencePreview({ evidence }: { evidence: Evidence }) {
+  const [source, setSource] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    let objectUrl: string | undefined;
+    setSource(null);
+    setFailed(false);
+    evidenceAPI.download(evidence.id, controller.signal).then(({ data }) => {
+      if (controller.signal.aborted) return;
+      if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(data.type)) {
+        setFailed(true);
+        return;
+      }
+      objectUrl = URL.createObjectURL(data);
+      setSource(objectUrl);
+    }).catch(() => { if (!controller.signal.aborted) setFailed(true); });
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [evidence.id]);
+  if (!source) return <p className="text-[11px] text-slate-500">{failed ? 'Preview unavailable.' : 'Loading evidence…'}</p>;
+  return <img src={source} alt={evidence.file_name} className="w-full h-28 object-cover rounded-lg border border-command-border mb-2" />;
+}
+
 export function DetailPanel({ incident, resources, onChanged, onClose }: Props) {
+  const { user } = useAuth();
+  const canDispatch = user?.role === 'admin' || user?.role === 'dispatcher';
+  const canRespond = canDispatch || user?.role === 'responder';
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -265,6 +295,10 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
     });
 
   const handleFileUpload = async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Please choose an image smaller than 10 MB.');
+      return;
+    }
     await runAction('upload-evidence', async () => {
       await evidenceAPI.upload(incident!.id, file, true);
       await loadEvidence(incident!.id);
@@ -484,7 +518,7 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
       )}
 
       {/* ===== Action Buttons ===== */}
-      <div className="grid grid-cols-3 gap-2">
+      {canDispatch && <div className="grid grid-cols-3 gap-2">
         {actions.map((a) => {
           const busy = loadingAction === a.key;
           const disabled = loadingAction !== null;
@@ -511,7 +545,7 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
             </button>
           );
         })}
-      </div>
+      </div>}
 
       {/* ===== Recommendations ===== */}
       {recommendations.length > 0 && (
@@ -646,7 +680,7 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
       )}
 
       {/* ===== Dispatched Units — Responder Field Lifecycle ===== */}
-      <Section icon={Truck} title="Dispatched Units — Field Lifecycle" accent="text-blue-400">
+      {canRespond && <Section icon={Truck} title="Dispatched Units — Field Lifecycle" accent="text-blue-400">
         {assignments.length === 0 ? (
           <p className="text-[11px] text-slate-600 text-center py-1 leading-relaxed">
             No units dispatched yet. Approve a recommendation above to dispatch a resource.
@@ -697,7 +731,7 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
                     <p className="text-[11px] text-slate-400 mt-1.5 italic leading-relaxed">“{a.notes}”</p>
                   )}
 
-                  {step.next && (
+                  {step.next && (canDispatch || a.responder_id === user?.id || (!a.responder_id && a.status === 'assigned')) && (
                     <button
                       onClick={() => handleAssignmentAdvance(a, step.next!.status, step.next!.label)}
                       disabled={loadingAction !== null}
@@ -727,7 +761,7 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
             })}
           </div>
         )}
-      </Section>
+      </Section>}
 
       {/* ===== Evidence Upload + AI Vision ===== */}
       <Section icon={Camera} title="Evidence & AI Vision" accent="text-pink-400">
@@ -747,7 +781,7 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
             {loadingAction === 'upload-evidence' ? 'Analyzing image…' : 'Upload photo / screenshot'}
             <input
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -776,15 +810,11 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
                     <span className="ml-auto text-[10px] text-slate-500">{ev.evidence_type}</span>
                   </div>
 
-                  {ev.file_url && ev.evidence_type === 'image' && (
-                    <img
-                      src={ev.file_url.startsWith('http') ? ev.file_url : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') ?? ''}${ev.file_url}`}
-                      alt={ev.file_name}
-                      className="w-full h-28 object-cover rounded-lg border border-command-border mb-2"
-                    />
-                  )}
+                  {ev.evidence_type === 'image' && <EvidencePreview evidence={ev} />}
 
-                  {analysis ? (
+                  {analysis?.error ? (
+                    <p className="text-[11px] text-amber-400">Image analysis is temporarily unavailable.</p>
+                  ) : analysis ? (
                     <div className="space-y-1.5">
                       <p className="text-[11px] text-slate-300 leading-relaxed">
                         {analysis.scene_description as string}

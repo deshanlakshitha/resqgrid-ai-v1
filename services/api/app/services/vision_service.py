@@ -45,34 +45,10 @@ async def analyze_evidence_image(evidence: Evidence) -> dict:
     """
     adapter = get_ai_adapter()
 
-    file_url = evidence.file_url or ""
-
-    # If the URL is a remote URL we can pass it directly to multimodal models
-    if file_url.startswith(("http://", "https://")):
-        image_url = file_url
-    else:
-        # Try to read from local filesystem under the api service root
-        import os
-        
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        local_path = file_url if file_url.startswith("/uploads/") else f"/uploads/{file_url.lstrip('/')}"
-        full_path = os.path.join(base_dir, local_path.lstrip("/"))
-
-        if not os.path.exists(full_path):
-            return {
-                "scene_description": "Image file not available for analysis.",
-                "detected_signals": ["none"],
-                "severity_hint": "low",
-                "estimated_people_at_risk": None,
-                "reasoning": "Could not locate the uploaded image file on the server.",
-                "confidence": 0.0,
-                "analyzed_at": datetime.now(timezone.utc).isoformat(),
-            }
-
-        with open(full_path, "rb") as f:
-            image_bytes = f.read()
-        mime = _image_mime_type(evidence.file_name)
-        image_url = f"data:{mime};base64,{base64.b64encode(image_bytes).decode('utf-8')}"
+    from app.services.storage_service import read_evidence_bytes
+    image_bytes = await read_evidence_bytes(evidence.file_url or "")
+    mime = _image_mime_type(evidence.file_name)
+    image_url = f"data:{mime};base64,{base64.b64encode(image_bytes).decode('utf-8')}"
 
     result = await adapter.analyze_image(image_url=image_url, prompt=VISION_PROMPT, response_format="json")
 
@@ -82,7 +58,7 @@ async def analyze_evidence_image(evidence: Evidence) -> dict:
             "detected_signals": ["none"],
             "severity_hint": "low",
             "estimated_people_at_risk": None,
-            "reasoning": result.get("raw", result["error"]),
+            "reasoning": "The image analysis provider did not return a valid result.",
             "confidence": 0.0,
             "analyzed_at": datetime.now(timezone.utc).isoformat(),
         }
