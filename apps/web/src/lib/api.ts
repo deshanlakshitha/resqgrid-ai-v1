@@ -176,3 +176,30 @@ export const auditAPI = {
   list: (params?: Record<string, unknown>) =>
     apiClient.get('/audit/logs', { params }),
 };
+
+export interface Assignment {
+  id: string;
+  incident_id: string;
+  resource_id: string;
+  responder_id?: string | null;
+  recommendation_id?: string | null;
+  status: string; // assigned | accepted | en_route | on_scene | completed | cancelled
+  dispatched_at?: string | null;
+  accepted_at?: string | null;
+  arrived_at?: string | null;
+  completed_at?: string | null;
+  notes?: string | null;
+  created_at: string;
+}
+
+export const assignmentAPI = {
+  list: (params?: Record<string, unknown>) =>
+    apiClient.get('/assignments', { params }),
+  create: (data: { incident_id: string; resource_id: string; recommendation_id: string; responder_id?: string }) =>
+    apiClient.post('/assignments', data),
+  updateStatus: (id: string, status: string, notes?: string) =>
+    apiClient.patch(`/assignments/${id}`, {
+      status,
+      ...(notes ? { notes } : {}),
+    }),
+};

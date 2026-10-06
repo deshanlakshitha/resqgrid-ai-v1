@@ -4,16 +4,18 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   BrainCircuit, Scale, Target, Check, X, Loader2, MapPin, Users, Stethoscope,
   Sparkles, History, AlertTriangle, CheckCircle2, XCircle, MousePointerClick,
-  Camera, UploadCloud, FileText,
+  Camera, UploadCloud, FileText, Truck,
 } from 'lucide-react';
 import {
   incidentAPI,
   recommendationAPI,
   evidenceAPI,
+  assignmentAPI,
   type Incident,
   type Resource,
   type Recommendation,
   type Evidence,
+  type Assignment,
 } from '@/lib/api';
 import { cn, severityColor, formatDate, priorityLabel } from '@/lib/utils';
 
@@ -31,6 +33,38 @@ const WEIGHT_LABELS: Record<string, string> = {
   environmental_risk: 'Environmental Risk',
   time_sensitivity: 'Time Sensitivity',
   evidence_confidence: 'Evidence Confidence',
+};
+
+// Backend enum values are lowercase — see services/api/app/models/entities.py
+const ASSIGNMENT_FLOW: Record<string, { label: string; badge: string; next?: { status: string; label: string } }> = {
+  assigned: {
+    label: 'Assigned',
+    badge: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+    next: { status: 'accepted', label: 'Accept' },
+  },
+  accepted: {
+    label: 'Accepted',
+    badge: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+    next: { status: 'en_route', label: 'En Route' },
+  },
+  en_route: {
+    label: 'En Route',
+    badge: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+    next: { status: 'on_scene', label: 'On Scene' },
+  },
+  on_scene: {
+    label: 'On Scene',
+    badge: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
+    next: { status: 'completed', label: 'Complete' },
+  },
+  completed: {
+    label: 'Completed',
+    badge: 'bg-green-500/15 text-green-400 border-green-500/30',
+  },
+  cancelled: {
+    label: 'Cancelled',
+    badge: 'bg-red-500/15 text-red-400 border-red-500/30',
+  },
 };
 
 function PriorityGauge({ score }: { score: number }) {
@@ -104,6 +138,7 @@ function Meta({ icon: Icon, label, value, valueClass }: {
 export function DetailPanel({ incident, resources, onChanged, onClose }: Props) {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -128,17 +163,28 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
     }
   }, []);
 
+  const loadAssignments = useCallback(async (id: string) => {
+    try {
+      const { data } = await assignmentAPI.list({ incident_id: id });
+      setAssignments(data);
+    } catch {
+      setAssignments([]);
+    }
+  }, []);
+
   useEffect(() => {
     setError('');
     setSuccess('');
     if (incidentId) {
       loadRecommendations(incidentId);
       loadEvidence(incidentId);
+      loadAssignments(incidentId);
     } else {
       setRecommendations([]);
       setEvidence([]);
+      setAssignments([]);
     }
-  }, [incidentId, loadRecommendations, loadEvidence]);
+  }, [incidentId, loadRecommendations, loadEvidence, loadAssignments]);
 
   // Auto-dismiss success message
   useEffect(() => {
@@ -201,8 +247,14 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
   const handleApprove = (rec: Recommendation) =>
     runAction(`approve-${rec.id}`, async () => {
       await recommendationAPI.approve(rec.id);
+      await assignmentAPI.create({
+        incident_id: incident.id,
+        resource_id: rec.resource_id,
+        recommendation_id: rec.id,
+      });
       await loadRecommendations(incident.id);
-      setSuccess('Approved — dispatch decision logged to audit trail');
+      await loadAssignments(incident.id);
+      setSuccess('Approved & dispatched — unit assigned, responder notified');
     });
 
   const handleReject = (rec: Recommendation) =>
@@ -219,6 +271,17 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
       setSuccess('Evidence uploaded and analyzed by AI');
     });
   };
+
+  const handleAssignmentAdvance = (assignment: Assignment, status: string, label: string) =>
+    runAction(`assign-${assignment.id}-${status}`, async () => {
+      await assignmentAPI.updateStatus(assignment.id, status);
+      await loadAssignments(incident.id);
+      setSuccess(
+        status === 'completed'
+          ? 'Unit completed — resource released back to the available pool'
+          : `Unit marked as ${label} — timestamp logged`,
+      );
+    });
 
   const resourceById = (id: string) => resources.find((r) => r.id === id);
   const triage = incident.triage_data as Record<string, any> | null;
@@ -581,6 +644,90 @@ export function DetailPanel({ incident, resources, onChanged, onClose }: Props) 
           </div>
         </Section>
       )}
+
+      {/* ===== Dispatched Units — Responder Field Lifecycle ===== */}
+      <Section icon={Truck} title="Dispatched Units — Field Lifecycle" accent="text-blue-400">
+        {assignments.length === 0 ? (
+          <p className="text-[11px] text-slate-600 text-center py-1 leading-relaxed">
+            No units dispatched yet. Approve a recommendation above to dispatch a resource.
+          </p>
+        ) : (
+          <div className="space-y-2.5">
+            {assignments.map((a) => {
+              const resource = resourceById(a.resource_id);
+              const step = ASSIGNMENT_FLOW[a.status] ?? ASSIGNMENT_FLOW.assigned;
+              const busy = loadingAction?.startsWith(`assign-${a.id}`);
+              return (
+                <div
+                  key={a.id}
+                  className="rounded-xl border border-command-borderhover/70 bg-command-panel/40 p-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">
+                        {resource?.name ?? 'Unknown resource'}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        {resource?.resource_type ?? '—'}
+                        {resource?.organization ? ` · ${resource.organization}` : ''}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        'shrink-0 text-[9px] font-bold px-2 py-1 rounded-md tracking-wider border capitalize',
+                        step.badge
+                      )}
+                    >
+                      {step.label}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[10px] text-slate-500">
+                    <span>
+                      Dispatched <span className="text-slate-400 tabular-nums">{formatDate(a.dispatched_at ?? a.created_at)}</span>
+                    </span>
+                    {a.completed_at && (
+                      <span>
+                        Completed <span className="text-slate-400 tabular-nums">{formatDate(a.completed_at)}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {a.notes && (
+                    <p className="text-[11px] text-slate-400 mt-1.5 italic leading-relaxed">“{a.notes}”</p>
+                  )}
+
+                  {step.next && (
+                    <button
+                      onClick={() => handleAssignmentAdvance(a, step.next!.status, step.next!.label)}
+                      disabled={loadingAction !== null}
+                      className={cn(
+                        'flex items-center justify-center gap-1.5 w-full mt-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all',
+                        'bg-gradient-to-r from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400',
+                        'disabled:opacity-50'
+                      )}
+                    >
+                      {busy ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Truck className="w-3.5 h-3.5" />
+                      )}
+                      {busy ? 'Working…' : `Mark ${step.next.label}`}
+                    </button>
+                  )}
+
+                  {a.status === 'completed' && (
+                    <div className="flex items-center gap-1.5 mt-2 text-[11px] font-medium text-green-400">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Resource released — back in the available pool
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Section>
 
       {/* ===== Evidence Upload + AI Vision ===== */}
       <Section icon={Camera} title="Evidence & AI Vision" accent="text-pink-400">
