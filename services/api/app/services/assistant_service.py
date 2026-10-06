@@ -1,5 +1,6 @@
 """AI Command Assistant Service."""
 
+import time
 from datetime import datetime, timezone
 
 import structlog
@@ -14,6 +15,13 @@ from app.models.user import User
 from app.schemas.schemas import AssistantQuery, AssistantResponse
 
 logger = structlog.get_logger()
+
+# Repeat-question cache and provider cooldown keep the assistant responsive
+# under provider rate limits (free-tier keys cap requests per minute).
+_CACHE_TTL_SECONDS = 120.0
+_COOLDOWN_SECONDS = 60.0
+_response_cache: dict[str, tuple[float, str]] = {}
+_llm_cooldown_until: float = 0.0
 
 
 async def _gather_context(db: AsyncSession):
@@ -45,8 +53,19 @@ async def _gather_context(db: AsyncSession):
     return active_incidents, active_hazards, available_resources, pending_recs or 0
 
 
-def _answer_without_llm(question: str, active_incidents, active_hazards, available_resources, pending_recs: int) -> str:
-    """Generate a useful, factual answer from the database when no AI API key is configured."""
+def _answer_without_llm(
+    question: str,
+    active_incidents,
+    active_hazards,
+    available_resources,
+    pending_recs: int,
+    degraded: bool = False,
+) -> str:
+    """Generate a useful, factual answer from the database when no LLM answer is available.
+
+    degraded=True when an LLM was configured but failed (rate limit/outage) —
+    the wording then reflects a temporary outage instead of missing configuration.
+    """
     q = question.lower().strip()
 
     # Greetings / small talk
@@ -121,12 +140,18 @@ def _answer_without_llm(question: str, active_incidents, active_hazards, availab
                 lines.append(f"- [{i.severity.value}] {i.title}")
         return "\n".join(lines)
 
-    # Fallback: provide a concise summary and note about real AI
+    # Fallback: provide a concise summary; wording depends on why the LLM is absent
     total = len(active_incidents)
     critical = len([i for i in active_incidents if i.severity == IncidentSeverity.CRITICAL])
+    if degraded:
+        preamble = "The live AI backend is temporarily unavailable (rate limit or provider outage)."
+    else:
+        preamble = (
+            "I can answer that more fully once an AI API key is configured "
+            "(set GEMINI_API_KEY or DASHSCOPE_API_KEY in services/api/.env)."
+        )
     return (
-        f"I can answer that more fully once an AI API key is configured "
-        f"(set GEMINI_API_KEY or DASHSCOPE_API_KEY in services/api/.env). "
+        f"{preamble} "
         f"For now, here is the current situation: {total} active incident(s) ({critical} critical), "
         f"{len(active_hazards)} active hazard(s), {len(available_resources)} resource(s) available, "
         f"and {pending_recs} recommendation(s) pending approval. "
@@ -138,6 +163,8 @@ async def process_assistant_query(
     db: AsyncSession, query: AssistantQuery, current_user: User
 ) -> AssistantResponse:
     """Process a natural-language query about the current emergency situation."""
+    global _llm_cooldown_until
+
     active_incidents, active_hazards, available_resources, pending_recs = await _gather_context(db)
 
     adapter = get_ai_adapter()
@@ -184,15 +211,46 @@ Operator Question: {query.question}
 
 Answer:"""
 
+    now = time.monotonic()
+    cache_key = query.question.strip().lower()
+
+    # Serve recent repeat questions from cache to stay under provider rate limits
+    cached = _response_cache.get(cache_key)
+    if cached is not None and now - cached[0] < _CACHE_TTL_SECONDS:
+        return AssistantResponse(
+            answer=cached[1],
+            sources=["incident_database", "hazard_registry", "resource_registry", "recommendation_registry"],
+            confidence=0.85,
+            timestamp=datetime.now(timezone.utc),  # noqa: UP017
+        )
+
+    # During a provider cooldown (recent rate limit/outage), skip the call entirely
+    if now < _llm_cooldown_until:
+        answer = _answer_without_llm(
+            query.question, active_incidents, active_hazards, available_resources, pending_recs,
+            degraded=True,
+        )
+        return AssistantResponse(
+            answer=(
+                "Live AI backend is cooling down after a rate limit — "
+                "answering from the operations database instead.\n\n" + answer
+            ),
+            sources=["incident_database", "hazard_registry", "resource_registry", "recommendation_registry"],
+            confidence=0.6,
+            timestamp=datetime.now(timezone.utc),  # noqa: UP017
+        )
+
     try:
         result = await adapter.complete(prompt)
     except Exception as exc:
         # Degraded mode: any provider failure (quota, timeout, safety block,
         # model error) falls back to deterministic database-driven answers so
         # the assistant keeps working during a crisis.
+        _llm_cooldown_until = time.monotonic() + _COOLDOWN_SECONDS
         logger.warning("assistant_llm_unavailable", error=str(exc), question=query.question)
         answer = _answer_without_llm(
-            query.question, active_incidents, active_hazards, available_resources, pending_recs
+            query.question, active_incidents, active_hazards, available_resources, pending_recs,
+            degraded=True,
         )
         return AssistantResponse(
             answer=(
@@ -205,6 +263,7 @@ Answer:"""
         )
 
     answer = result if isinstance(result, str) else str(result)
+    _response_cache[cache_key] = (time.monotonic(), answer)
 
     return AssistantResponse(
         answer=answer,
