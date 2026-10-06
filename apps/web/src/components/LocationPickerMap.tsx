@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Crosshair, Loader2, MapPin } from 'lucide-react';
+import { Crosshair, Loader2, MapPin, Search, X } from 'lucide-react';
 import { useMapEngine } from '@/lib/useMapEngine';
 import { FALLBACK_MAP_STYLE_URL } from '@/lib/mapConfig';
 
@@ -11,14 +11,40 @@ interface Props {
   onChange: (lat: number, lng: number) => void;
 }
 
+interface GeocodeResult {
+  display_name: string;
+  lat: string;
+  lon: string;
+}
+
 /**
- * Interactive location picker: click the map to drop the pin, drag the pin
- * to fine-tune, or hit "My location" to use the browser's GPS position.
+ * Interactive location picker: search for a place, click the map to drop the pin,
+ * drag the pin to fine-tune, or hit "My location" to use the browser's GPS position.
  * Real Google Maps when configured, OpenFreeMap fallback otherwise.
  */
 export function LocationPickerMap({ latitude, longitude, onChange }: Props) {
   const engine = useMapEngine();
   const [locating, setLocating] = useState(false);
+
+  // Search state
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<GeocodeResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const [showResults, setShowResults] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchBoxRef = useRef<HTMLDivElement>(null);
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!searchBoxRef.current?.contains(e.target as Node)) {
+        setShowResults(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const handleLocate = () => {
     if (!('geolocation' in navigator)) return;
@@ -31,6 +57,51 @@ export function LocationPickerMap({ latitude, longitude, onChange }: Props) {
       () => setLocating(false),
       { enableHighAccuracy: true, timeout: 8000 }
     );
+  };
+
+  const runSearch = async (text: string) => {
+    const q = text.trim();
+    if (!q) return;
+    setSearching(true);
+    setSearchError('');
+    setResults([]);
+    setShowResults(true);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&accept-language=en`;
+      const res = await fetch(url, {
+        headers: { 'Accept-Language': 'en', 'User-Agent': 'ResQGrid-AI-LocationPicker/1.0' },
+      });
+      if (!res.ok) throw new Error('Search service unavailable');
+      const data = (await res.json()) as GeocodeResult[];
+      if (data.length === 0) {
+        setSearchError('No places found. Try a different name.');
+      } else {
+        setResults(data);
+      }
+    } catch (e) {
+      setSearchError('Could not search places. Please check your connection.');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const selectResult = (r: GeocodeResult) => {
+    const lat = parseFloat(r.lat);
+    const lng = parseFloat(r.lon);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      onChange(lat, lng);
+      setQuery(r.display_name.split(',')[0]);
+    }
+    setShowResults(false);
+    setResults([]);
+  };
+
+  const clearSearch = () => {
+    setQuery('');
+    setResults([]);
+    setShowResults(false);
+    setSearchError('');
+    searchInputRef.current?.focus();
   };
 
   return (
@@ -50,10 +121,73 @@ export function LocationPickerMap({ latitude, longitude, onChange }: Props) {
         </div>
       )}
 
+      {/* Search box */}
+      <div ref={searchBoxRef} className="absolute top-2.5 left-2.5 right-[7.5rem] z-10">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            runSearch(query);
+          }}
+          className="relative"
+        >
+          <div className="flex items-center gap-1.5 bg-command-panel/95 backdrop-blur border border-command-border rounded-lg shadow-panel overflow-hidden pr-1">
+            <Search className="w-3.5 h-3.5 text-slate-400 ml-2.5 shrink-0" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => results.length > 0 && setShowResults(true)}
+              placeholder="Search place…"
+              className="flex-1 bg-transparent border-none outline-none py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 min-w-0"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="p-1 text-slate-500 hover:text-slate-300"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={searching || !query.trim()}
+              className="px-2 py-1 text-[11px] font-medium text-slate-300 hover:text-white disabled:opacity-40 disabled:hover:text-slate-300 transition-colors"
+            >
+              {searching ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Search'}
+            </button>
+          </div>
+
+          {/* Results dropdown */}
+          {showResults && (results.length > 0 || searchError) && (
+            <div className="absolute top-full left-0 right-0 mt-1.5 bg-command-panel/98 backdrop-blur border border-command-border rounded-lg shadow-panel overflow-hidden">
+              {searchError ? (
+                <div className="px-3 py-2 text-[11px] text-red-400">{searchError}</div>
+              ) : (
+                <ul className="max-h-44 overflow-y-auto custom-scrollbar">
+                  {results.map((r, idx) => (
+                    <li key={idx}>
+                      <button
+                        type="button"
+                        onClick={() => selectResult(r)}
+                        className="w-full text-left px-3 py-2 text-[11px] text-slate-300 hover:bg-command-raised hover:text-white transition-colors border-b border-command-border/50 last:border-0"
+                      >
+                        <span className="font-medium block truncate">{r.display_name}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </form>
+      </div>
+
       {/* Hint chip */}
-      <div className="absolute top-2.5 left-2.5 z-10 pointer-events-none flex items-center gap-1.5 bg-command-panel/95 backdrop-blur border border-command-border rounded-lg px-2.5 py-1.5 text-[11px] text-slate-400 shadow-panel">
+      <div className="absolute bottom-2.5 left-2.5 z-10 pointer-events-none flex items-center gap-1.5 bg-command-panel/95 backdrop-blur border border-command-border rounded-lg px-2.5 py-1.5 text-[11px] text-slate-400 shadow-panel">
         <MapPin className="w-3.5 h-3.5 text-red-400" />
-        Click the map or drag the pin
+        Click map or drag pin
       </div>
 
       {/* GPS button */}
@@ -125,7 +259,7 @@ function GooglePicker({ latitude, longitude, onChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Follow external coordinate changes (inputs, GPS)
+  // Follow external coordinate changes (inputs, GPS, search)
   useEffect(() => {
     const map = mapRef.current;
     const marker = markerRef.current;
@@ -197,7 +331,7 @@ function MapLibrePicker({ latitude, longitude, onChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Follow external coordinate changes (inputs, GPS)
+  // Follow external coordinate changes (inputs, GPS, search)
   useEffect(() => {
     const map = mapRef.current;
     const marker = markerRef.current;
