@@ -7,7 +7,6 @@ services:
     plan: free
     region: singapore
     dockerfilePath: ./services/api/Dockerfile
-    startCommand: ./start.sh
     healthCheckPath: /health
     envVars:
       - key: APP_ENV
