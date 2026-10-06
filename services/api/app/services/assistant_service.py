@@ -44,7 +44,18 @@ async def _gather_context(db: AsyncSession):
 
 def _answer_without_llm(question: str, active_incidents, active_hazards, available_resources, pending_recs: int) -> str:
     """Generate a useful, factual answer from the database when no AI API key is configured."""
-    q = question.lower()
+    q = question.lower().strip()
+
+    # Greetings / small talk
+    if q in {"hi", "hello", "hey", "hi there", "hello there", "greetings"}:
+        return (
+            "Hello! I'm the ResQGrid AI Command Assistant. I can help with:\n"
+            "- Critical incidents and situation summary\n"
+            "- Available rescue resources\n"
+            "- Active hazards and blocked routes\n"
+            "- Pending AI recommendations awaiting approval\n\n"
+            "What would you like to know?"
+        )
 
     # Critical incidents
     if any(k in q for k in ["critical incidents", "most critical", "urgent incidents", "highest priority"]):
@@ -111,7 +122,8 @@ def _answer_without_llm(question: str, active_incidents, active_hazards, availab
     total = len(active_incidents)
     critical = len([i for i in active_incidents if i.severity == IncidentSeverity.CRITICAL])
     return (
-        f"I can answer that more fully once DASHSCOPE_API_KEY is configured. "
+        f"I can answer that more fully once an AI API key is configured "
+        f"(set GEMINI_API_KEY or DASHSCOPE_API_KEY in services/api/.env). "
         f"For now, here is the current situation: {total} active incident(s) ({critical} critical), "
         f"{len(active_hazards)} active hazard(s), {len(available_resources)} resource(s) available, "
         f"and {pending_recs} recommendation(s) pending approval. "
